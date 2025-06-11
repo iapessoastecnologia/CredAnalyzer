@@ -88,7 +88,7 @@ function Analysis() {
                 checked={selectedDocuments.registration} 
                 onChange={handleCheckboxChange}
               />
-              Cadastro
+              Registro
             </label>
             {selectedDocuments.registration && (
               <div className="file-upload">
