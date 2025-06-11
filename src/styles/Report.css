@@ -1,0 +1,232 @@
+.report-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+  min-height: 100vh;
+  background-color: var(--color-background);
+}
+
+.report-container h1 {
+  text-align: center;
+  margin-bottom: 2.5rem;
+  color: var(--color-primary);
+  font-size: 2.5rem;
+  font-weight: 700;
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.report-container h1::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background-color: var(--color-secondary);
+  border-radius: 2px;
+}
+
+.report-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.download-button,
+.home-button {
+  padding: 1rem 2rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.download-button::before,
+.home-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: 0.5s;
+  z-index: 1;
+}
+
+.download-button:hover::before,
+.home-button:hover::before {
+  left: 100%;
+}
+
+.download-button {
+  background-color: var(--color-secondary);
+  color: var(--color-primary);
+  min-width: 220px;
+}
+
+.download-button:hover {
+  background-color: #e0bb00;
+  transform: translateY(-3px);
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.15);
+}
+
+.home-button {
+  background-color: var(--color-primary);
+  color: white;
+  min-width: 180px;
+}
+
+.home-button:hover {
+  background-color: #052538;
+  transform: translateY(-3px);
+  box-shadow: 0 7px 20px rgba(11, 57, 84, 0.25);
+}
+
+.download-button:active,
+.home-button:active {
+  transform: translateY(1px);
+}
+
+.chat-container {
+  background-color: white;
+  padding: 3rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  animation: fadeIn 0.8s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(11, 57, 84, 0.03) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 0 0 0 100%;
+  z-index: 0;
+}
+
+.chat-container h2 {
+  margin-bottom: 2rem;
+  color: var(--color-primary);
+  border-bottom: 2px solid #eef2f7;
+  padding-bottom: 1rem;
+  font-size: 1.8rem;
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-placeholder {
+  min-height: 350px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-text-light);
+  text-align: center;
+  background: linear-gradient(135deg, #f9fbfd 0%, #f2f6fa 100%);
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  position: relative;
+  z-index: 1;
+  border: 2px dashed #e0e7ee;
+}
+
+.chat-placeholder::before {
+  content: '💬';
+  font-size: 3rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.5;
+}
+
+.chat-placeholder p {
+  margin-bottom: 0.8rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .report-container {
+    padding: 2rem 1.5rem;
+  }
+  
+  .report-container h1 {
+    font-size: 2rem;
+  }
+  
+  .report-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .download-button,
+  .home-button {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .chat-container {
+    padding: 2rem 1.5rem;
+  }
+  
+  .chat-container h2 {
+    font-size: 1.5rem;
+  }
+  
+  .chat-placeholder {
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .report-container h1 {
+    font-size: 1.8rem;
+  }
+  
+  .chat-container {
+    padding: 1.5rem 1rem;
+  }
+  
+  .chat-placeholder {
+    min-height: 300px;
+    padding: 1.5rem 1rem;
+  }
+  
+  .chat-placeholder p {
+    font-size: 1rem;
+  }
+} 
