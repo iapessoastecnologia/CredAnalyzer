@@ -22,7 +22,7 @@ function Home() {
         <div className="container">
           <div className="hero-content">
             <h1 className="hero-title">
-              Documentation Analysis <span className="highlight">for Credit</span>
+              Analista de Documentação <span className="highlight">para Crédito</span>
             </h1>
             <p className="hero-description">
               Transforme a análise de documentos para crédito com nossa plataforma impulsionada por inteligência artificial. Obtenha análises precisas, reduza o tempo de processamento e tome decisões mais inteligentes.

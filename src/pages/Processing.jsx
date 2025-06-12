@@ -1,34 +1,204 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/Processing.css';
 
 function Processing() {
   const navigate = useNavigate();
-  
-  // Simulate processing time
+  const location = useLocation();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [progress, setProgress] = useState('Iniciando análise...');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [totalSteps] = useState(3);
+
+  const updateProgress = (step, message) => {
+    setCurrentStep(step);
+    setProgress(message);
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigate('/report');
-    }, 3000); // 3 seconds
-    
-    return () => clearTimeout(timer);
-  }, [navigate]);
-  
+    async function sendFiles() {
+      if (!location.state || !location.state.files) {
+        setError('Nenhum arquivo enviado para análise.');
+        setLoading(false);
+        return;
+      }
+
+      const files = location.state.files;
+      console.log('Enviando arquivos:', files.map(f => f.name));
+
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      try {
+        updateProgress(1, 'Enviando arquivos para o servidor...');
+        console.log('Fazendo requisição para:', 'http://127.0.0.1:8000/analyze/');
+        
+        const response = await fetch('http://127.0.0.1:8000/analyze/', {
+          method: 'POST',
+          body: formData,
+          // Timeout aumentado para 120 segundos devido ao processamento da IA
+          signal: AbortSignal.timeout(120000)
+        });
+
+        console.log('Resposta recebida:', response.status, response.statusText);
+        updateProgress(2, 'Extraindo texto dos documentos...');
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erro na resposta:', errorText);
+          
+          // Tentar fazer parse do JSON para pegar detalhes do erro
+          let errorMessage;
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.detail || errorText;
+          } catch {
+            errorMessage = errorText;
+          }
+          
+          throw new Error(`Erro na API (${response.status}): ${errorMessage}`);
+        }
+
+        updateProgress(3, 'Processando análise com Inteligência Artificial...');
+
+        const data = await response.json();
+        console.log('Dados recebidos:', data);
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        if (!data.success) {
+          throw new Error('Processamento não foi concluído com sucesso');
+        }
+
+        updateProgress(3, 'Análise concluída! Preparando relatório...');
+        
+        // Pequeno delay para mostrar mensagem de sucesso
+        setTimeout(() => {
+          // Navega para o relatório passando a análise como state
+          navigate('/report', { 
+            state: { 
+              analysis: data.analysis,
+              processedFiles: data.processed_files,
+              totalTextLength: data.total_text_length,
+              filesProcessed: data.files_processed
+            } 
+          });
+        }, 1500);
+
+      } catch (err) {
+        console.error('Erro durante o processamento:', err);
+        
+        if (err.name === 'TimeoutError') {
+          setError('Timeout: O processamento demorou muito. Isso pode acontecer com arquivos grandes ou quando a API da OpenAI está lenta. Tente novamente com arquivos menores.');
+        } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          setError('Erro de conexão: Verifique se o servidor backend está rodando em http://127.0.0.1:8000');
+        } else if (err.message.includes('OpenAI')) {
+          setError(`Erro na análise AI: ${err.message}. Verifique se a OPENAI_API_KEY está configurada corretamente.`);
+        } else {
+          setError(`Erro: ${err.message}`);
+        }
+        setLoading(false);
+      }
+    }
+
+    // Verificar se o backend está rodando antes de enviar arquivos
+    async function checkBackendHealth() {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/health');
+        if (response.ok) {
+          const health = await response.json();
+          console.log('Status do backend:', health);
+          
+          if (!health.openai_configured) {
+            setError('Backend está rodando, mas a API da OpenAI não está configurada. Verifique a OPENAI_API_KEY.');
+            setLoading(false);
+            return;
+          }
+          
+          // Backend está OK, continuar com o processamento
+          sendFiles();
+        } else {
+          throw new Error('Backend não está respondendo corretamente');
+        }
+      } catch (err) {
+        console.error('Erro ao verificar backend:', err);
+        setError('Não foi possível conectar com o servidor. Verifique se o backend está rodando em http://127.0.0.1:8000');
+        setLoading(false);
+      }
+    }
+
+    checkBackendHealth();
+  }, [location.state, navigate]);
+
+  if (error) {
+    return (
+      <div className="processing-container">
+        <h1>Erro no Processamento</h1>
+        <div className="error-details">
+          <p className="error-message">{error}</p>
+          <div className="error-help">
+            <h3>Possíveis soluções:</h3>
+            <ul>
+              <li>Verifique se o backend está rodando: <code>uvicorn main:app --reload</code></li>
+              <li>Verifique se a OPENAI_API_KEY está configurada no arquivo .env</li>
+              <li>Tente com arquivos menores (máximo 10MB cada)</li>
+              <li>Verifique sua conexão com a internet</li>
+            </ul>
+          </div>
+        </div>
+        <button 
+          onClick={() => navigate('/analysis')} 
+          className="back-button"
+        >
+          Voltar para Seleção de Documentos
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="processing-container">
-      {/* Decorative floating documents */}
       <div className="document"></div>
       <div className="document"></div>
       <div className="document"></div>
       <div className="document"></div>
-      
       <div className="processing-content">
-        <h1>Processando</h1>
-        <p>Seus documentos estão sendo analisados...</p>
-        <div className="loading-spinner"></div>
+        <h1>Processando Documentos</h1>
+        <div className="progress-info">
+          <p className="progress-text">{progress}</p>
+          <div className="progress-bar">
+            <div 
+              className="progress-fill" 
+              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+            ></div>
+          </div>
+          <p className="progress-step">Etapa {currentStep} de {totalSteps}</p>
+        </div>
+        {loading && <div className="loading-spinner"></div>}
+        
+        <div className="processing-steps">
+          <div className={`step ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}>
+            <div className="step-number">1</div>
+            <div className="step-text">Upload dos Arquivos</div>
+          </div>
+          <div className={`step ${currentStep >= 2 ? 'active' : ''} ${currentStep > 2 ? 'completed' : ''}`}>
+            <div className="step-number">2</div>
+            <div className="step-text">Extração de Texto</div>
+          </div>
+          <div className={`step ${currentStep >= 3 ? 'active' : ''}`}>
+            <div className="step-number">3</div>
+            <div className="step-text">Análise por IA</div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-export default Processing; 
+export default Processing;
