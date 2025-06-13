@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 .env
+public/assets/TIMBRADO*
 
 # Editor directories and files
 .vscode/*
