@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório de Análise - Jornada Bancária</title>
+  <link rel="stylesheet" href="timbrado-style.css">
+</head>
+<body>
+  <div class="pdf-container">
+    <div class="header">
+      <h1>JORNADA BANCÁRIA</h1>
+      <h2>Relatório de Análise</h2>
+    </div>
+    
+    <div class="date">
+      Data: <span id="current-date"></span>
+    </div>
+    
+    <div id="report-content" class="content">
+      <!-- O conteúdo do relatório será inserido aqui -->
+      <p>Carregando conteúdo...</p>
+    </div>
+    
+    <div class="footer">
+      Jornada Bancária - Documento gerado automaticamente
+    </div>
+  </div>
+
+  <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <button id="print-button" style="padding: 8px 16px; background: #0B3954; color: white; border: none; border-radius: 4px; cursor: pointer;">Imprimir / Salvar PDF</button>
+  </div>
+
+  <script>
+    // Formatar a data atual
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('pt-BR');
+    document.getElementById('current-date').textContent = dateStr;
+    
+    // Receber o conteúdo do relatório da janela que abriu esta página
+    window.onload = function() {
+      try {
+        if (window.opener && window.opener.reportContent) {
+          document.getElementById('report-content').innerHTML = window.opener.reportContent;
+          
+          // Adicionar evento ao botão de impressão
+          document.getElementById('print-button').addEventListener('click', function() {
+            window.print();
+          });
+        } else {
+          document.getElementById('report-content').innerHTML = '<p>Erro: Não foi possível carregar o conteúdo do relatório.</p>';
+        }
+      } catch (error) {
+        console.error('Erro ao carregar conteúdo:', error);
+        document.getElementById('report-content').innerHTML = '<p>Erro ao carregar o conteúdo do relatório.</p>';
+      }
+    };
+  </script>
+</body>
+</html> 

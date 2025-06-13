@@ -104,6 +104,20 @@
   transform: translateY(1px);
 }
 
+.download-button:disabled {
+  background-color: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.download-button:disabled:hover {
+  background-color: #cccccc;
+  transform: none;
+  box-shadow: none;
+}
+
 .report-content {
   background-color: white;
   padding: 3rem;

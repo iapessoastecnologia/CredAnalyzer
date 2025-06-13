@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import '../styles/Report.css';
@@ -6,11 +7,24 @@ import '../styles/Report.css';
 function Report() {
   const navigate = useNavigate();
   const location = useLocation();
+  const reportContentRef = useRef(null);
 
   const analysis = location.state?.analysis || "Nenhuma análise disponível.";
 
   const handleDownloadPDF = () => {
-    alert('A funcionalidade de download de PDF será implementada no futuro.');
+    // Obter o conteúdo HTML do relatório
+    const reportContent = reportContentRef.current.innerHTML;
+    
+    // Armazenar o conteúdo em uma variável global para que o template possa acessá-lo
+    window.reportContent = reportContent;
+    
+    // Abrir o template de impressão em uma nova janela
+    const printWindow = window.open('./assets/print-template.html', '_blank', 'width=800,height=600');
+    
+    // Limpar a variável global após a impressão
+    printWindow.onafterprint = function() {
+      window.reportContent = null;
+    };
   };
 
   const handleBackToHome = () => {
@@ -38,7 +52,7 @@ function Report() {
       </div>
 
       <div className="report-content">
-        <div className="markdown-container">
+        <div className="markdown-container" ref={reportContentRef}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysis}</ReactMarkdown>
         </div>
       </div>
