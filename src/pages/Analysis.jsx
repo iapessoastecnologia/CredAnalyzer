@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/Analysis.css';
 
 function Analysis() {
@@ -20,10 +20,29 @@ function Analysis() {
     taxBilling: null,
     managementBilling: null
   });
+  
+  // Carregar estado salvo quando o componente monta
+  useEffect(() => {
+    const savedSelections = localStorage.getItem('analysisSelectedDocuments');
+    if (savedSelections) {
+      try {
+        const parsedSelections = JSON.parse(savedSelections);
+        setSelectedDocuments(parsedSelections);
+      } catch (error) {
+        console.error('Erro ao carregar seleções salvas:', error);
+      }
+    }
+  }, []);
 
   const handleCheckboxChange = (e) => {
     const { name, checked } = e.target;
-    setSelectedDocuments(prev => ({ ...prev, [name]: checked }));
+    const updatedSelections = { ...selectedDocuments, [name]: checked };
+    
+    setSelectedDocuments(updatedSelections);
+    
+    // Salvar seleções atualizadas no localStorage
+    localStorage.setItem('analysisSelectedDocuments', JSON.stringify(updatedSelections));
+    
     if (!checked) {
       setFiles(prev => ({ ...prev, [name]: null }));
     }
@@ -32,6 +51,9 @@ function Analysis() {
   const handleFileChange = (e) => {
     const { name, files } = e.target;
     setFiles(prev => ({ ...prev, [name]: files[0] }));
+    
+    // Não salvamos os arquivos no localStorage porque são objetos File
+    // que não podem ser serializados em JSON
   };
 
   const handleSubmit = (e) => {
@@ -42,12 +64,19 @@ function Analysis() {
       .filter(([key, checked]) => checked && files[key])
       .map(([key]) => files[key]);
     
+    // Limpar seleções salvas ao avançar para a próxima etapa
+    localStorage.removeItem('analysisSelectedDocuments');
+    
     navigate('/processing', { state: { files: filesToSend } });
   };
   
+  const handleBack = () => {
+    navigate('/planning');
+  };
 
   return (
     <div className="analysis-container">
+      <button className="back-button" onClick={handleBack}>Voltar</button>
       <h1>Análise de Documentos</h1>
       <form onSubmit={handleSubmit} className="document-form">
         <div className="document-selection">

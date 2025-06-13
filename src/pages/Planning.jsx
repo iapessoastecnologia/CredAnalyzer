@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/Planning.css';
 
@@ -14,18 +14,94 @@ function Planning() {
     timeInCompany: ''
   });
   
+  // Carregar dados salvos do localStorage ao montar o componente
+  useEffect(() => {
+    const savedData = localStorage.getItem('planningFormData');
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        
+        // Se houver valor de crédito numérico, formatá-lo como moeda
+        if (parsedData.creditAmount && typeof parsedData.creditAmount === 'number') {
+          parsedData.creditAmount = formatCurrency(String(parsedData.creditAmount * 100));
+        }
+        
+        setFormData(parsedData);
+      } catch (error) {
+        console.error('Erro ao carregar dados salvos:', error);
+      }
+    }
+  }, []);
+  
+  // Função para formatar valor como moeda brasileira
+  const formatCurrency = (value) => {
+    // Remove todos os caracteres não numéricos
+    const numericValue = value.replace(/\D/g, '');
+    
+    // Se não houver valor, retorna vazio
+    if (!numericValue) return '';
+    
+    // Converte para número e divide por 100 para obter o valor em reais
+    const floatValue = parseFloat(numericValue) / 100;
+    
+    // Formata o valor como moeda brasileira
+    return floatValue.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+  
+  // Função para remover a formatação e obter apenas o valor numérico
+  const unformatCurrency = (value) => {
+    // Remove todos os caracteres não numéricos
+    return value.replace(/\D/g, '') || '0';
+  };
+  
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prevData => ({
-      ...prevData,
-      [name]: value
-    }));
+    
+    let updatedFormData;
+    
+    if (name === 'creditAmount') {
+      // Para o campo de valor, aplica a máscara de moeda
+      const unformattedValue = unformatCurrency(value);
+      const formattedValue = formatCurrency(unformattedValue);
+      
+      updatedFormData = {
+        ...formData,
+        [name]: formattedValue
+      };
+    } else {
+      // Para os outros campos, mantém o comportamento original
+      updatedFormData = {
+        ...formData,
+        [name]: value
+      };
+    }
+    
+    // Atualiza o estado e salva no localStorage
+    setFormData(updatedFormData);
+    localStorage.setItem('planningFormData', JSON.stringify(updatedFormData));
   };
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    localStorage.setItem('planningData', JSON.stringify(formData));
+    
+    // Antes de salvar, converte o valor formatado para número
+    const formDataToSave = { ...formData };
+    if (formData.creditAmount) {
+      // Remove a formatação e converte para número
+      formDataToSave.creditAmount = parseFloat(unformatCurrency(formData.creditAmount)) / 100;
+    }
+    
+    localStorage.setItem('planningData', JSON.stringify(formDataToSave));
     navigate('/analysis');
+  };
+  
+  const handleBack = () => {
+    navigate('/');
   };
   
   const segments = ['Varejo', 'Indústria', 'Serviços', 'Tecnologia', 'Saúde', 'Educação', 'Outro'];
@@ -33,6 +109,7 @@ function Planning() {
 
   return (
     <div className="planning-container">
+      <button className="back-button" onClick={handleBack}>Voltar</button>
       <h1>Planejamento</h1>
       <form onSubmit={handleSubmit} className="planning-form">
         <div className="form-group">
@@ -66,12 +143,20 @@ function Planning() {
           </div>
         )}
         <div className="form-group">
-          <label htmlFor="creditAmount">Valor do Crédito Buscado (R$):</label>
-          <input type="number" id="creditAmount" name="creditAmount" value={formData.creditAmount} onChange={handleChange} min="1" step="0.01" required />
+          <label htmlFor="creditAmount">Valor do Crédito Buscado:</label>
+          <input 
+            type="text" 
+            id="creditAmount" 
+            name="creditAmount" 
+            value={formData.creditAmount} 
+            onChange={handleChange} 
+            placeholder="R$ 0,00"
+            required 
+          />
         </div>
         <div className="form-group">
           <label htmlFor="timeInCompany">Tempo na Empresa (anos):</label>
-          <input type="number" id="timeInCompany" name="timeInCompany" value={formData.timeInCompany} onChange={handleChange} min="0.1" step="0.1" required />
+          <input type="number" id="timeInCompany" name="timeInCompany" value={formData.timeInCompany} onChange={handleChange} min="0.1" step="any" required />
         </div>
         <button type="submit" className="continue-button">Continuar</button>
       </form>
