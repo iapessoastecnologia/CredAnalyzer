@@ -1,4 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import '../styles/Report.css';
 
 function Report() {
@@ -35,10 +37,9 @@ function Report() {
         </button>
       </div>
 
-      <div className="chat-container">
-        <h2>Chat Contextualizado</h2>
-        <div className="chat-placeholder">
-          <pre style={{whiteSpace: 'pre-wrap'}}>{analysis}</pre>
+      <div className="report-content">
+        <div className="markdown-container">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysis}</ReactMarkdown>
         </div>
       </div>
     </div>

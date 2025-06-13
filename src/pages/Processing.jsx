@@ -33,6 +33,13 @@ function Processing() {
         formData.append('files', file);
       });
 
+      // Obter dados de planejamento do localStorage
+      const planningData = localStorage.getItem('planningData');
+      if (planningData) {
+        console.log('Adicionando dados de planejamento:', planningData);
+        formData.append('planning_data', planningData);
+      }
+
       try {
         updateProgress(1, 'Enviando arquivos para o servidor...');
         console.log('Fazendo requisição para:', 'http://127.0.0.1:8000/analyze/');

@@ -104,7 +104,7 @@
   transform: translateY(1px);
 }
 
-.chat-container {
+.report-content {
   background-color: white;
   padding: 3rem;
   border-radius: 16px;
@@ -114,7 +114,7 @@
   overflow: hidden;
 }
 
-.chat-container::before {
+.report-content::before {
   content: '';
   position: absolute;
   top: 0;
@@ -126,44 +126,106 @@
   z-index: 0;
 }
 
-.chat-container h2 {
-  margin-bottom: 2rem;
-  color: var(--color-primary);
-  border-bottom: 2px solid #eef2f7;
-  padding-bottom: 1rem;
-  font-size: 1.8rem;
-  font-weight: 600;
-  position: relative;
-  z-index: 1;
-}
-
-.chat-placeholder {
-  min-height: 350px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  color: var(--color-text-light);
-  text-align: center;
-  background: linear-gradient(135deg, #f9fbfd 0%, #f2f6fa 100%);
-  border-radius: 12px;
-  padding: 3rem 2rem;
-  position: relative;
-  z-index: 1;
-  border: 2px dashed #e0e7ee;
-}
-
-.chat-placeholder::before {
-  content: '💬';
-  font-size: 3rem;
-  margin-bottom: 1.5rem;
-  opacity: 0.5;
-}
-
-.chat-placeholder p {
-  margin-bottom: 0.8rem;
-  font-size: 1.1rem;
+/* Estilos para o conteúdo Markdown */
+.markdown-container {
   line-height: 1.6;
+  color: var(--color-text);
+  position: relative;
+  z-index: 1;
+}
+
+.markdown-container h1,
+.markdown-container h2,
+.markdown-container h3,
+.markdown-container h4,
+.markdown-container h5,
+.markdown-container h6 {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.markdown-container h1 {
+  font-size: 2rem;
+  border-bottom: 2px solid #eaecef;
+  padding-bottom: 0.5rem;
+}
+
+.markdown-container h2 {
+  font-size: 1.75rem;
+  border-bottom: 1px solid var(--color-secondary);
+  padding-bottom: 0.3rem;
+}
+
+.markdown-container h3 {
+  font-size: 1.5rem;
+}
+
+.markdown-container h4 {
+  font-size: 1.25rem;
+}
+
+.markdown-container p {
+  margin-bottom: 1rem;
+}
+
+.markdown-container ul,
+.markdown-container ol {
+  padding-left: 2rem;
+  margin-bottom: 1rem;
+}
+
+.markdown-container li {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-container blockquote {
+  border-left: 4px solid #dfe2e5;
+  padding-left: 1rem;
+  color: var(--color-text-light);
+  margin: 1rem 0;
+}
+
+.markdown-container code {
+  background-color: #f0f0f0;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.markdown-container pre {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.markdown-container th,
+.markdown-container td {
+  padding: 0.75rem;
+  border: 1px solid #dfe2e5;
+}
+
+.markdown-container th {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+
+.markdown-container tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* Estilos para texto em negrito */
+.markdown-container strong {
+  font-weight: 700;
+  color: var(--color-secondary);
 }
 
 /* Animation */
@@ -199,15 +261,7 @@
     max-width: 300px;
   }
   
-  .chat-container {
-    padding: 2rem 1.5rem;
-  }
-  
-  .chat-container h2 {
-    font-size: 1.5rem;
-  }
-  
-  .chat-placeholder {
+  .report-content {
     padding: 2rem 1.5rem;
   }
 }
@@ -217,16 +271,7 @@
     font-size: 1.8rem;
   }
   
-  .chat-container {
+  .report-content {
     padding: 1.5rem 1rem;
-  }
-  
-  .chat-placeholder {
-    min-height: 300px;
-    padding: 1.5rem 1rem;
-  }
-  
-  .chat-placeholder p {
-    font-size: 1rem;
   }
 } 
