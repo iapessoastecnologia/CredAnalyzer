@@ -1,20 +1,26 @@
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/Home.css';
 import logo from '../assets/logo.png';
 
 function Home() {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
 
   const handleClick = () => {
-    navigate('/planning');
+    if (currentUser) {
+      navigate('/planning');
+    } else {
+      navigate('/login');
+    }
   };
 
   return (
     <div className="home-container">
       <header className="home-header">
         <div className="logo">
-          <span className="logo-text">Cred<span className="highlight">Analyzer</span></span>
           <img src={logo} alt="Logo" className="logo-image" />
+          <span className="logo-text">Cred<span className="highlight">Analyzer</span></span>
         </div>
       </header>
 
@@ -31,7 +37,7 @@ function Home() {
               className="cta-button"
               onClick={handleClick}
             >
-              Começar Análise
+              {currentUser ? 'Começar Análise' : 'Entrar para Começar'}
             </button>
           </div>
 
@@ -93,7 +99,7 @@ function Home() {
               className="cta-button"
               onClick={handleClick}
             >
-              Iniciar Agora
+              {currentUser ? 'Iniciar Agora' : 'Entrar para Começar'}
             </button>
           </div>
         </div>
