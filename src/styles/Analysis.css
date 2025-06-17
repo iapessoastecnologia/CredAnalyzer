@@ -284,4 +284,17 @@
   .send-documents-button {
     padding: 1rem;
   }
+}
+
+.file-name {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.9rem;
+  color: #666;
+  word-break: break-all;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 5px;
+  border-left: 3px solid #4caf50;
 } 

@@ -155,7 +155,7 @@ function Planning() {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="timeInCompany">Tempo na Empresa (anos):</label>
+          <label htmlFor="timeInCompany">Tempo de Empresa (anos):</label>
           <input type="number" id="timeInCompany" name="timeInCompany" value={formData.timeInCompany} onChange={handleChange} min="0.1" step="any" required />
         </div>
         <button type="submit" className="continue-button">Continuar</button>

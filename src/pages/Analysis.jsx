@@ -50,10 +50,33 @@ function Analysis() {
 
   const handleFileChange = (e) => {
     const { name, files } = e.target;
-    setFiles(prev => ({ ...prev, [name]: files[0] }));
     
-    // Não salvamos os arquivos no localStorage porque são objetos File
-    // que não podem ser serializados em JSON
+    // Adicionar um prefixo ao nome do arquivo para facilitar a identificação posterior
+    if (files[0]) {
+      // Criar um novo objeto File com o mesmo conteúdo, mas com nome modificado
+      const fileType = getFileType(name);
+      const newFileName = `${fileType}_${files[0].name}`;
+      
+      // Não podemos modificar o arquivo diretamente, então armazenamos metadados adicionais
+      const fileWithMetadata = files[0];
+      fileWithMetadata.documentType = name; // Adicionar metadados para identificar o tipo do documento
+      
+      setFiles(prev => ({ ...prev, [name]: fileWithMetadata }));
+    } else {
+      setFiles(prev => ({ ...prev, [name]: null }));
+    }
+  };
+  
+  // Função para obter o tipo de arquivo em português para o nome
+  const getFileType = (key) => {
+    const types = {
+      incomeTax: 'ImpostoRenda',
+      registration: 'Registro',
+      taxStatus: 'SituacaoFiscal',
+      taxBilling: 'FaturamentoFiscal',
+      managementBilling: 'FaturamentoGerencial'
+    };
+    return types[key] || key;
   };
 
   const handleSubmit = (e) => {
@@ -64,8 +87,15 @@ function Analysis() {
       .filter(([key, checked]) => checked && files[key])
       .map(([key]) => files[key]);
     
-    // Limpar seleções salvas ao avançar para a próxima etapa
-    localStorage.removeItem('analysisSelectedDocuments');
+    // Salvar informações sobre os arquivos enviados no localStorage
+    const filesInfo = Object.entries(selectedDocuments)
+      .filter(([key, checked]) => checked && files[key])
+      .reduce((acc, [key]) => {
+        acc[key] = true;
+        return acc;
+      }, {});
+    
+    localStorage.setItem('analysisFilesInfo', JSON.stringify(filesInfo));
     
     navigate('/processing', { state: { files: filesToSend } });
   };
@@ -90,12 +120,22 @@ function Analysis() {
               {selected && (
                 <div className="file-upload">
                   <input type="file" name={key} onChange={handleFileChange} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                  {files[key] && (
+                    <span className="file-name">{files[key].name}</span>
+                  )}
                 </div>
               )}
             </div>
           ))}
         </div>
-        <button type="submit" className="send-documents-button">Enviar Documentos</button>
+        <button 
+          type="submit" 
+          className="send-documents-button" 
+          disabled={!Object.values(selectedDocuments).some(Boolean) || 
+            !Object.entries(selectedDocuments).some(([key, selected]) => selected && files[key])}
+        >
+          Enviar Documentos
+        </button>
       </form>
     </div>
   );

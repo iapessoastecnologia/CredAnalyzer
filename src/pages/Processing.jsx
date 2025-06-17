@@ -93,7 +93,8 @@ function Processing() {
               analysis: data.analysis,
               processedFiles: data.processed_files,
               totalTextLength: data.total_text_length,
-              filesProcessed: data.files_processed
+              filesProcessed: data.files_processed,
+              files: location.state.files // Passar os arquivos enviados para o relatório
             } 
           });
         }, 1500);
