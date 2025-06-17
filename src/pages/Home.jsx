@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/Home.css';
-import logo from '../assets/logo.png';
 
 function Home() {
   const navigate = useNavigate();
@@ -17,13 +16,6 @@ function Home() {
 
   return (
     <div className="home-container">
-      <header className="home-header">
-        <div className="logo">
-          <img src={logo} alt="Logo" className="logo-image" />
-          <span className="logo-text">Cred<span className="highlight">Analyzer</span></span>
-        </div>
-      </header>
-
       <main className="hero-section">
         <div className="container">
           <div className="hero-content">

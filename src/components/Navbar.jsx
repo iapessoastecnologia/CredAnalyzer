@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import logo from '../assets/logo.png';
 
 function Navbar() {
   const { currentUser, logout } = useAuth();
@@ -53,9 +54,15 @@ function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-container">
-        <div className="navbar-brand">
-          <Link to="/" className="navbar-logo">
-            <h1>CredAnalyzer</h1>
+        <div className="navbar-logo">
+          <Link to="/" className="logo-link">
+            <img src={logo} alt="Logo" className="logo-image" />
+          </Link>
+        </div>
+        
+        <div className="navbar-title">
+          <Link to="/" className="title-link">
+            <h1>Cred<span className="highlight">Analyzer</span></h1>
           </Link>
         </div>
         
