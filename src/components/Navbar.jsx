@@ -51,6 +51,10 @@ function Navbar() {
     navigate('/login');
   }
 
+  function handleProfileClick() {
+    navigate('/profile');
+  }
+
   return (
     <nav className="navbar">
       <div className="navbar-container">
@@ -69,7 +73,15 @@ function Navbar() {
         <div className="navbar-user">
           {currentUser ? (
             <>
-              {userName && <span className="user-name">Olá, {userName}</span>}
+              {userName && (
+                <span 
+                  className="user-name"
+                  onClick={handleProfileClick}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Olá, {userName}
+                </span>
+              )}
               <button 
                 onClick={handleLogout} 
                 disabled={loading}

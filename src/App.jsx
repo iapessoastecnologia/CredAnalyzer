@@ -5,6 +5,7 @@ import Planning from './pages/Planning';
 import Analysis from './pages/Analysis';
 import Processing from './pages/Processing';
 import Report from './pages/Report';
+import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Navbar from './components/Navbar';
 import './App.css';
@@ -47,6 +48,11 @@ function App() {
           <Route path="/report" element={
             <ProtectedRoute>
               <Report />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           } />
           <Route path="/login" element={<Login />} />
