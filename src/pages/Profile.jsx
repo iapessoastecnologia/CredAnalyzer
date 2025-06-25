@@ -5,8 +5,15 @@ import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'fireb
 import { db } from '../firebase/config';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+// Importações corretas para React 19 e ReactMarkdown 10
 import { generatePdfFromHtml } from '../utils/reportUtils';
 import '../styles/Profile.css';
+
+// Função utilitária para garantir que o conteúdo markdown é uma string válida
+const formatMarkdownContent = (content) => {
+  if (!content) return '';
+  return typeof content === 'string' ? content : String(content);
+};
 
 function Profile() {
   const { currentUser, logout, updateUserData } = useAuth();
@@ -241,10 +248,14 @@ function Profile() {
                 </button>
               </div>
             </div>
-            <div className="report-full-content" id="report-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {selectedReport.conteudoRelatorio}
-              </ReactMarkdown>
+            <div className="report-full-content markdown-container" id="report-content">
+              {selectedReport.conteudoRelatorio ? (
+                <ReactMarkdown rehypePlugins={[]} remarkPlugins={[[remarkGfm, {singleTilde: false}]]}>
+                  {formatMarkdownContent(selectedReport.conteudoRelatorio)}
+                </ReactMarkdown>
+              ) : (
+                <p>Conteúdo do relatório não disponível.</p>
+              )}
             </div>
           </div>
         )}
@@ -303,9 +314,21 @@ function Profile() {
                 {reports.map((report) => (
                   <div key={report.id} className="report-card" onClick={() => handleViewReport(report)}>
                     <div className="report-card-preview">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {report.conteudoRelatorio.substring(0, 150) + '...'}
-                      </ReactMarkdown>
+                      {report.conteudoRelatorio ? (
+                        <div className="markdown-container">
+                          <ReactMarkdown 
+                            rehypePlugins={[]} 
+                            remarkPlugins={[[remarkGfm, {singleTilde: false}]]}
+                          >
+                                                      {(() => {
+                              const content = formatMarkdownContent(report.conteudoRelatorio);
+                              return content.length > 150 ? content.substring(0, 150) + '...' : content;
+                            })()}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p>Conteúdo do relatório não disponível.</p>
+                      )}
                     </div>
                     <div className="report-card-footer">
                       <p>

@@ -429,6 +429,31 @@
   line-height: 1.7;
   padding-bottom: 3rem;
   color: var(--color-text);
+  font-family: Arial, sans-serif;
+}
+
+/* Adicionar estilos para o report-card-preview também renderizar markdown corretamente */
+.report-card-preview .markdown-container,
+.report-card-preview p,
+.report-card-preview h1,
+.report-card-preview h2,
+.report-card-preview h3,
+.report-card-preview h4,
+.report-card-preview h5,
+.report-card-preview h6,
+.report-card-preview ul,
+.report-card-preview ol,
+.report-card-preview li,
+.report-card-preview blockquote,
+.report-card-preview code,
+.report-card-preview pre {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.report-card-preview strong {
+  font-weight: 600;
+  color: var(--color-secondary);
 }
 
 /* Seção de configurações */
