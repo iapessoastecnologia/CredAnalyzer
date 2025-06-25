@@ -185,10 +185,10 @@ function Report() {
 
       <div className="report-actions">
         <button
-          className="download-button"
+          className="download-btn"
           onClick={handleDownloadPDF}
         >
-          Baixar Relatório PDF
+        Baixar Relatório PDF
         </button>
 
         <button
