@@ -1,9 +1,77 @@
-import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from './config';
 
 // Função para salvar relatório no Firestore
-export const saveReport = async (userId, userName, planningData, analysisFiles, reportContent) => {
+export const saveReport = async (userId, userName, planningData, analysisFiles, reportContent, reportIdentifier = null) => {
   try {
+    console.log(`Tentando salvar relatório com identificador: ${reportIdentifier}`);
+    
+    // Verificar se já existe um relatório com este identificador (se fornecido)
+    if (reportIdentifier) {
+      try {
+        const relatoriosRef = collection(db, 'relatorios');
+        const q = query(
+          relatoriosRef, 
+          where('identificadorRelatorio', '==', reportIdentifier)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          console.log("Relatório com este identificador já existe, não será salvo novamente");
+          return { 
+            success: true, 
+            reportId: querySnapshot.docs[0].id, 
+            alreadyExists: true 
+          };
+        }
+      } catch (error) {
+        console.error("Erro ao verificar existência do relatório:", error);
+        // Continuar com o salvamento mesmo que a verificação falhe
+      }
+    }
+    
+    // Verificar também se há relatórios recentes para este usuário com conteúdo idêntico
+    // para evitar duplicações mesmo sem identificador
+    try {
+      // Limitamos a busca aos últimos 5 minutos para evitar verificações demoradas
+      const cincoMinutosAtras = new Date();
+      cincoMinutosAtras.setMinutes(cincoMinutosAtras.getMinutes() - 5);
+      
+      const relatoriosRef = collection(db, 'relatorios');
+      const q = query(
+        relatoriosRef, 
+        where('usuarioId', '==', userId),
+        // Não podemos comparar com timestamp do Firestore, então verificamos após a busca
+      );
+      
+      const querySnapshot = await getDocs(q);
+      let relatorioDuplicado = false;
+      
+      querySnapshot.forEach(doc => {
+        const dados = doc.data();
+        // Verificar só os relatórios recentes
+        if (
+          dados.conteudoRelatorio === reportContent && 
+          (!dados.timestamp || dados.timestamp.toMillis() > cincoMinutosAtras.getTime())
+        ) {
+          relatorioDuplicado = true;
+          console.log("Relatório com conteúdo idêntico encontrado (últimos 5 min), não será salvo novamente");
+          return;
+        }
+      });
+      
+      if (relatorioDuplicado) {
+        return { 
+          success: true, 
+          reportId: "existente", 
+          alreadyExists: true 
+        };
+      }
+    } catch (error) {
+      console.error("Erro ao verificar relatórios duplicados:", error);
+      // Continuar mesmo que a verificação falhe
+    }
+    
     // Preparar os dados de planejamento
     const planejamentoInicial = {
       segmentoEmpresa: planningData.segment,
@@ -54,7 +122,9 @@ export const saveReport = async (userId, userName, planningData, analysisFiles, 
       planejamentoInicial,
       documentosEnviados,
       conteudoRelatorio: reportContent, // Salvar o conteúdo como texto
-      timestamp: serverTimestamp()
+      timestamp: serverTimestamp(),
+      identificadorRelatorio: reportIdentifier || `${userId}-${Date.now()}`,
+      dataCriacao: new Date().toISOString() // Adicionar data de criação explícita para facilitar consultas
     };
     
     // Salvar no Firestore com ID gerado automaticamente

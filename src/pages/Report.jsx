@@ -16,8 +16,17 @@ function Report() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [error, setError] = useState(null);
   const [backendAvailable, setBackendAvailable] = useState(false);
-
+  
+  // Referência para controlar se o relatório já foi salvo durante esta sessão
+  const hasAttemptedSaveRef = useRef(false);
+  
   const analysis = location.state?.analysis || "Nenhuma análise disponível.";
+  
+  // Criar um identificador de relatório estável
+  const reportId = useRef(
+    localStorage.getItem('lastReportId') || 
+    `report-${currentUser?.uid || 'guest'}-${Date.now()}`
+  );
 
   // Verificar se o backend está disponível
   useEffect(() => {
@@ -41,9 +50,29 @@ function Report() {
 
   // Efeito para salvar o relatório no Firestore quando o componente for montado
   useEffect(() => {
+    // Evitar múltiplos salvamentos verificando o localStorage e o ref
+    const isSaved = localStorage.getItem(`report-saved-${reportId.current}`) === 'true';
+    
+    if (isSaved || hasAttemptedSaveRef.current) {
+      console.log('Relatório já foi salvo ou tentativa já realizada');
+      if (isSaved && !savedSuccess) {
+        setSavedSuccess(true);
+      }
+      return;
+    }
+    
+    // Marcar que tentativa de salvamento foi iniciada
+    hasAttemptedSaveRef.current = true;
+
     const saveReportToFirestore = async () => {
       if (!currentUser) {
         console.log('Usuário não autenticado, relatório não será salvo');
+        return;
+      }
+      
+      // Verificar se temos dados suficientes para salvar
+      if (analysis === "Nenhuma análise disponível.") {
+        console.log('Sem análise para salvar');
         return;
       }
       
@@ -104,7 +133,8 @@ function Report() {
             user_id: currentUser.uid,
             user_name: currentUser.displayName || currentUser.email,
             planning_data: planningData,
-            report_content: analysis
+            report_content: analysis,
+            report_identifier: reportId.current
           };
           
           // Adicionar dados do relatório como JSON string
@@ -129,11 +159,15 @@ function Report() {
             currentUser.displayName || currentUser.email,
             planningData,
             analysisFiles,
-            analysis // Enviando o conteúdo do relatório como texto
+            analysis,
+            reportId.current
           );
         }
         
         if (result.success) {
+          // Marcar relatório como salvo no localStorage
+          localStorage.setItem(`report-saved-${reportId.current}`, 'true');
+          localStorage.setItem('lastReportId', reportId.current);
           setSavedSuccess(true);
         } else {
           throw new Error(result.error || 'Erro desconhecido ao salvar relatório');
@@ -146,8 +180,13 @@ function Report() {
       }
     };
     
-    saveReportToFirestore();
-  }, [currentUser, location.state, analysis, backendAvailable]);
+    // Executar o salvamento com um pequeno atraso para evitar chamadas múltiplas
+    const timer = setTimeout(() => {
+      saveReportToFirestore();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [currentUser, location.state, analysis, backendAvailable, savedSuccess]);
 
   const handleDownloadPDF = async () => {
     // Obter o conteúdo HTML do relatório
