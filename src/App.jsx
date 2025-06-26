@@ -10,6 +10,8 @@ import Login from './pages/Login';
 import Navbar from './components/Navbar';
 import './App.css';
 import './styles/navbar.css';
+import Payment from './pages/Payment';
+import Wallet from './pages/Wallet';
 
 // Componente para rotas protegidas
 function ProtectedRoute({ children }) {
@@ -30,19 +32,20 @@ function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/planning" element={
             <ProtectedRoute>
               <Planning />
             </ProtectedRoute>
           } />
-          <Route path="/analysis" element={
-            <ProtectedRoute>
-              <Analysis />
-            </ProtectedRoute>
-          } />
           <Route path="/processing" element={
             <ProtectedRoute>
               <Processing />
+            </ProtectedRoute>
+          } />
+          <Route path="/analysis" element={
+            <ProtectedRoute>
+              <Analysis />
             </ProtectedRoute>
           } />
           <Route path="/report" element={
@@ -55,7 +58,16 @@ function App() {
               <Profile />
             </ProtectedRoute>
           } />
-          <Route path="/login" element={<Login />} />
+          <Route path="/payment" element={
+            <ProtectedRoute>
+              <Payment />
+            </ProtectedRoute>
+          } />
+          <Route path="/wallet" element={
+            <ProtectedRoute>
+              <Wallet />
+            </ProtectedRoute>
+          } />
         </Routes>
       </div>
     </Router>

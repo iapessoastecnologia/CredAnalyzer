@@ -7,7 +7,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();
@@ -72,9 +72,47 @@ export function AuthProvider({ children }) {
   }
 
   // Atualizar dados do usuário
-  async function updateUserData(uid, data) {
-    return await setDoc(doc(db, "usuarios", uid), data, { merge: true });
-  }
+  const updateUserData = async (userId, data) => {
+    try {
+      const userDocRef = doc(db, 'usuarios', userId);
+      await updateDoc(userDocRef, data);
+      return true;
+    } catch (error) {
+      console.error("Erro ao atualizar dados do usuário:", error);
+      throw error;
+    }
+  };
+  
+  const updateUserSubscription = async (userId, subscriptionData) => {
+    try {
+      const userDocRef = doc(db, 'usuarios', userId);
+      await updateDoc(userDocRef, { 
+        subscription: subscriptionData 
+      });
+      return true;
+    } catch (error) {
+      console.error("Erro ao atualizar assinatura do usuário:", error);
+      throw error;
+    }
+  };
+  
+  const decrementReportsLeft = async (userId) => {
+    try {
+      const userDocRef = doc(db, 'usuarios', userId);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists() && userDoc.data().subscription?.reportsLeft > 0) {
+        await updateDoc(userDocRef, {
+          'subscription.reportsLeft': userDoc.data().subscription.reportsLeft - 1
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Erro ao decrementar relatórios restantes:", error);
+      throw error;
+    }
+  };
 
   // Logout
   function logout() {
@@ -98,7 +136,9 @@ export function AuthProvider({ children }) {
     loginWithGoogle,
     logout,
     saveUserData,
-    updateUserData
+    updateUserData,
+    updateUserSubscription,
+    decrementReportsLeft
   };
 
   return (

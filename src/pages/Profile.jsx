@@ -225,6 +225,12 @@ function Profile() {
           >
             Configurações
           </li>
+          <li 
+            className="wallet-link"
+            onClick={() => navigate('/wallet')}
+          >
+            Carteira
+          </li>
         </ul>
         <button onClick={() => navigate('/')} className="back-button">
           Voltar ao Início
