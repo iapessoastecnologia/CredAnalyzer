@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import '../styles/Wallet.css';
+import { listarCartoes, definirCartaoPadrao, removerCartao, adicionarCartao, obterHistoricoPagamentos, cancelarAssinatura, getPlanoUsuario } from '../services/paymentService';
 
 function Wallet() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('cards');
   const [cards, setCards] = useState([]);
   const [paymentHistory, setPaymentHistory] = useState([]);
@@ -22,6 +24,15 @@ function Wallet() {
   });
   const [userSubscription, setUserSubscription] = useState(null);
   const [saveMessage, setSaveMessage] = useState('');
+  const [customerStripeId, setCustomerStripeId] = useState(null);
+
+  // Exibir mensagem de sucesso se vier da página de pagamento
+  useEffect(() => {
+    if (location.state?.paymentSuccess) {
+      setSaveMessage('Pagamento realizado com sucesso!');
+      setTimeout(() => setSaveMessage(''), 3000);
+    }
+  }, [location]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -33,60 +44,73 @@ function Wallet() {
         const userDoc = await getDoc(doc(db, "usuarios", currentUser.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          // Verificar se o usuário tem assinatura
-          if (userData.subscription) {
-            setUserSubscription({
-              plan: userData.subscription.planName,
-              reportsLeft: userData.subscription.reportsLeft,
-              endDate: userData.subscription.endDate?.toDate ? 
-                userData.subscription.endDate.toDate() : 
-                new Date(userData.subscription.endDate),
-              autoRenew: userData.subscription.autoRenew || false,
-            });
+          
+          if (userData.stripeCustomerId) {
+            setCustomerStripeId(userData.stripeCustomerId);
+          }
+          
+          // Obter informações do plano do usuário
+          try {
+            const planResponse = await getPlanoUsuario(currentUser.uid);
+            
+            if (planResponse.success && planResponse.tem_plano) {
+              setUserSubscription({
+                plan: planResponse.plano.nome,
+                reportsLeft: planResponse.plano.relatorios_restantes,
+                endDate: new Date(planResponse.plano.data_fim),
+                autoRenew: planResponse.plano.renovacao_automatica,
+              });
+            }
+          } catch (err) {
+            console.error("Erro ao obter plano:", err);
           }
         }
 
-        // Simular busca de cartões
-        const cardsQuery = query(
-          collection(db, 'cartoes'),
-          where('usuarioId', '==', currentUser.uid)
-        );
-        const cardsSnapshot = await getDocs(cardsQuery);
-        const cardsData = [];
-        
-        cardsSnapshot.forEach((doc) => {
-          cardsData.push({
-            id: doc.id,
-            ...doc.data(),
-            cardNumber: `**** **** **** ${doc.data().lastFourDigits || '1234'}`,
-            isDefault: doc.data().isDefault || false
-          });
-        });
-        
-        setCards(cardsData);
+        // Buscar cartões se tiver customerStripeId
+        if (customerStripeId) {
+          try {
+            const cardsResponse = await listarCartoes(customerStripeId);
+            
+            if (cardsResponse.success) {
+              const cardsData = cardsResponse.cards.map(card => ({
+                id: card.id,
+                cardNumber: `**** **** **** ${card.last4}`,
+                brand: card.brand,
+                cardName: card.name || 'Cartão',
+                expiryDate: `${card.exp_month}/${card.exp_year}`,
+                isDefault: card.isDefault
+              }));
+              
+              setCards(cardsData);
+            }
+          } catch (err) {
+            console.error("Erro ao buscar cartões:", err);
+          }
+        }
 
         // Buscar histórico de pagamentos
-        const paymentsQuery = query(
-          collection(db, 'pagamentos'),
-          where('usuarioId', '==', currentUser.uid)
-        );
-        const paymentsSnapshot = await getDocs(paymentsQuery);
-        const paymentsData = [];
-        
-        paymentsSnapshot.forEach((doc) => {
-          const paymentData = doc.data();
-          paymentsData.push({
-            id: doc.id,
-            ...paymentData,
-            date: paymentData.timestamp?.toDate ? 
-              paymentData.timestamp.toDate() : 
-              new Date(paymentData.timestamp || Date.now()),
-          });
-        });
-        
-        paymentsData.sort((a, b) => b.date - a.date);
-        
-        setPaymentHistory(paymentsData);
+        try {
+          const historyResponse = await obterHistoricoPagamentos(currentUser.uid);
+          
+          if (historyResponse.success) {
+            const paymentsData = historyResponse.payments.map(payment => ({
+              id: payment.id,
+              amount: payment.amount,
+              currency: payment.currency,
+              status: payment.status,
+              date: new Date(payment.created * 1000),
+              paymentMethod: payment.payment_method_details?.type || 'unknown',
+              description: payment.description,
+              planName: payment.description?.includes('Plano') ? 
+                payment.description.split(' - ')[0] : 'Assinatura'
+            }));
+            
+            paymentsData.sort((a, b) => b.date - a.date);
+            setPaymentHistory(paymentsData);
+          }
+        } catch (err) {
+          console.error("Erro ao buscar histórico de pagamentos:", err);
+        }
       } catch (err) {
         console.error("Erro ao buscar dados do usuário:", err);
         setError('Falha ao carregar dados da carteira.');
@@ -96,7 +120,7 @@ function Wallet() {
     };
     
     fetchUserData();
-  }, [currentUser]);
+  }, [currentUser, customerStripeId]);
 
   const handleCardInputChange = (e) => {
     const { name, value } = e.target;
@@ -109,50 +133,58 @@ function Wallet() {
   const handleAddCard = async (e) => {
     e.preventDefault();
     
+    if (!customerStripeId) {
+      setError('Identificador do cliente não encontrado');
+      return;
+    }
+    
     try {
       setLoading(true);
       
-      const lastFourDigits = newCard.cardNumber.slice(-4);
+      // Normalmente, você usaria Stripe Elements para gerenciar este processo
+      // de forma segura, mas para este exemplo, estamos simulando
+      alert('Em um ambiente real, você usaria Stripe Elements para coletar dados do cartão de forma segura');
       
-      await addDoc(collection(db, 'cartoes'), {
-        usuarioId: currentUser.uid,
-        cardName: newCard.cardName,
-        lastFourDigits,
-        brand: detectCardBrand(newCard.cardNumber),
-        expiryDate: newCard.expiryDate,
-        isDefault: cards.length === 0,
-        createdAt: new Date()
-      });
+      // Dados que seriam gerados pelo Stripe após processamento do cartão
+      const cardData = {
+        customer_id: customerStripeId,
+        payment_method_id: `pm_simulated_${Date.now()}`,
+        set_default: cards.length === 0
+      };
       
-      setSaveMessage('Cartão adicionado com sucesso!');
-      setTimeout(() => setSaveMessage(''), 3000);
+      const response = await adicionarCartao(cardData);
       
-      setNewCard({
-        cardNumber: '',
-        cardName: '',
-        expiryDate: '',
-        cvv: ''
-      });
-      
-      setShowAddCardForm(false);
-      
-      // Recarregar cartões
-      const cardsQuery = query(
-        collection(db, 'cartoes'),
-        where('usuarioId', '==', currentUser.uid)
-      );
-      const cardsSnapshot = await getDocs(cardsQuery);
-      const cardsData = [];
-      
-      cardsSnapshot.forEach((doc) => {
-        cardsData.push({
-          id: doc.id,
-          ...doc.data(),
-          cardNumber: `**** **** **** ${doc.data().lastFourDigits || '1234'}`,
+      if (response.success) {
+        setSaveMessage('Cartão adicionado com sucesso!');
+        setTimeout(() => setSaveMessage(''), 3000);
+        
+        setNewCard({
+          cardNumber: '',
+          cardName: '',
+          expiryDate: '',
+          cvv: ''
         });
-      });
-      
-      setCards(cardsData);
+        
+        setShowAddCardForm(false);
+        
+        // Recarregar cartões
+        const cardsResponse = await listarCartoes(customerStripeId);
+        
+        if (cardsResponse.success) {
+          const cardsData = cardsResponse.cards.map(card => ({
+            id: card.id,
+            cardNumber: `**** **** **** ${card.last4}`,
+            brand: card.brand,
+            cardName: card.name || 'Cartão',
+            expiryDate: `${card.exp_month}/${card.exp_year}`,
+            isDefault: card.isDefault
+          }));
+          
+          setCards(cardsData);
+        }
+      } else {
+        setError(response.error || 'Erro ao adicionar cartão');
+      }
     } catch (err) {
       console.error("Erro ao adicionar cartão:", err);
       setError('Falha ao adicionar cartão.');
@@ -162,22 +194,24 @@ function Wallet() {
   };
 
   const handleSetDefaultCard = async (cardId) => {
+    if (!customerStripeId) return;
+    
     try {
       setLoading(true);
       
-      for (const card of cards) {
-        await updateDoc(doc(db, 'cartoes', card.id), {
+      const response = await definirCartaoPadrao(customerStripeId, cardId);
+      
+      if (response.success) {
+        setCards(cards.map(card => ({
+          ...card,
           isDefault: card.id === cardId
-        });
+        })));
+        
+        setSaveMessage('Cartão padrão atualizado!');
+        setTimeout(() => setSaveMessage(''), 3000);
+      } else {
+        setError(response.error || 'Erro ao definir cartão padrão');
       }
-      
-      setCards(cards.map(card => ({
-        ...card,
-        isDefault: card.id === cardId
-      })));
-      
-      setSaveMessage('Cartão padrão atualizado!');
-      setTimeout(() => setSaveMessage(''), 3000);
     } catch (err) {
       console.error("Erro ao definir cartão padrão:", err);
       setError('Falha ao definir cartão padrão.');
@@ -187,6 +221,8 @@ function Wallet() {
   };
 
   const handleRemoveCard = async (cardId) => {
+    if (!customerStripeId) return;
+    
     try {
       setLoading(true);
       
@@ -196,28 +232,17 @@ function Wallet() {
         return;
       }
       
-      const isDefault = cards.find(card => card.id === cardId)?.isDefault;
+      const response = await removerCartao(customerStripeId, cardId);
       
-      await deleteDoc(doc(db, 'cartoes', cardId));
-      
-      if (isDefault) {
-        const nextCard = cards.find(card => card.id !== cardId);
-        if (nextCard) {
-          await updateDoc(doc(db, 'cartoes', nextCard.id), {
-            isDefault: true
-          });
-        }
+      if (response.success) {
+        const updatedCards = cards.filter(card => card.id !== cardId);
+        setCards(updatedCards);
+        
+        setSaveMessage('Cartão removido com sucesso!');
+        setTimeout(() => setSaveMessage(''), 3000);
+      } else {
+        setError(response.error || 'Erro ao remover cartão');
       }
-      
-      const updatedCards = cards.filter(card => card.id !== cardId);
-      if (isDefault && updatedCards.length > 0) {
-        updatedCards[0].isDefault = true;
-      }
-      
-      setCards(updatedCards);
-      
-      setSaveMessage('Cartão removido com sucesso!');
-      setTimeout(() => setSaveMessage(''), 3000);
     } catch (err) {
       console.error("Erro ao remover cartão:", err);
       setError('Falha ao remover cartão.');
@@ -227,23 +252,24 @@ function Wallet() {
   };
 
   const handleToggleAutoRenew = async () => {
-    if (!userSubscription) return;
+    if (!userSubscription || !currentUser) return;
     
     try {
       setLoading(true);
       
-      const userDoc = doc(db, "usuarios", currentUser.uid);
-      await updateDoc(userDoc, {
-        "subscription.autoRenew": !userSubscription.autoRenew
-      });
+      const response = await cancelarAssinatura(currentUser.uid);
       
-      setUserSubscription({
-        ...userSubscription,
-        autoRenew: !userSubscription.autoRenew
-      });
-      
-      setSaveMessage(`Renovação automática ${!userSubscription.autoRenew ? 'ativada' : 'desativada'}!`);
-      setTimeout(() => setSaveMessage(''), 3000);
+      if (response.success) {
+        setUserSubscription({
+          ...userSubscription,
+          autoRenew: false
+        });
+        
+        setSaveMessage('Renovação automática desativada!');
+        setTimeout(() => setSaveMessage(''), 3000);
+      } else {
+        setError(response.error || 'Erro ao alterar renovação automática');
+      }
     } catch (err) {
       console.error("Erro ao alterar renovação automática:", err);
       setError('Falha ao alterar renovação automática.');
@@ -262,10 +288,10 @@ function Wallet() {
   };
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }).format(value);
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value / 100); // Convertendo de centavos para reais
   };
 
   const formatDate = (date) => {
@@ -405,7 +431,7 @@ function Wallet() {
                     {cards.map((card) => (
                       <div key={card.id} className={`card-item ${card.isDefault ? 'default' : ''}`}>
                         <div className="card-header">
-                          <h3>{card.brand}</h3>
+                          <h3>{getBrandDisplay(card.brand)}</h3>
                           {card.isDefault && <span className="default-badge">Padrão</span>}
                         </div>
                         <div className="card-number">
@@ -470,12 +496,10 @@ function Wallet() {
                             <td>{formatDate(payment.date)}</td>
                             <td>{payment.planName}</td>
                             <td>{formatCurrency(payment.amount)}</td>
-                            <td>{payment.paymentMethod}</td>
+                            <td>{getPaymentMethodDisplay(payment.paymentMethod)}</td>
                             <td>
-                              <span className={`status-badge ${payment.status}`}>
-                                {payment.status === 'completed' ? 'Concluído' : 
-                                 payment.status === 'pending' ? 'Pendente' : 
-                                 payment.status === 'failed' ? 'Falhou' : payment.status}
+                              <span className={`status-badge ${getStatusClass(payment.status)}`}>
+                                {getStatusDisplay(payment.status)}
                               </span>
                             </td>
                           </tr>
@@ -528,6 +552,7 @@ function Wallet() {
                                 type="checkbox" 
                                 checked={userSubscription.autoRenew}
                                 onChange={handleToggleAutoRenew}
+                                disabled={!userSubscription.autoRenew}
                               />
                               <span className="slider"></span>
                             </label>
@@ -570,6 +595,43 @@ function Wallet() {
       </div>
     </div>
   );
+}
+
+// Funções auxiliares para exibição
+function getBrandDisplay(brand) {
+  switch (brand?.toLowerCase()) {
+    case 'visa': return 'Visa';
+    case 'mastercard': return 'Mastercard';
+    case 'amex': return 'American Express';
+    case 'discover': return 'Discover';
+    default: return brand || 'Cartão';
+  }
+}
+
+function getPaymentMethodDisplay(method) {
+  switch (method?.toLowerCase()) {
+    case 'card': return 'Cartão de Crédito';
+    case 'pix': return 'PIX';
+    default: return method || 'Desconhecido';
+  }
+}
+
+function getStatusClass(status) {
+  switch (status?.toLowerCase()) {
+    case 'succeeded': return 'completed';
+    case 'pending': return 'pending';
+    case 'failed': return 'failed';
+    default: return '';
+  }
+}
+
+function getStatusDisplay(status) {
+  switch (status?.toLowerCase()) {
+    case 'succeeded': return 'Concluído';
+    case 'pending': return 'Pendente';
+    case 'failed': return 'Falhou';
+    default: return status || 'Desconhecido';
+  }
 }
 
 export default Wallet; 

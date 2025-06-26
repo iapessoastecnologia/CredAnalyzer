@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
+import { criarCliente, getPlanoUsuario, consumirRelatorio } from '../services/paymentService';
 
 const AuthContext = createContext();
 
@@ -19,6 +20,8 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userSubscription, setUserSubscription] = useState(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   // Registro com email e senha
   async function register(email, password, userData) {
@@ -29,6 +32,25 @@ export function AuthProvider({ children }) {
         ...userData,
         email: email
       });
+      
+      // Criar cliente no Stripe
+      try {
+        const stripeCustomer = await criarCliente({
+          user_id: userCredential.user.uid,
+          email: email,
+          nome: userData.nome || email.split('@')[0]
+        });
+        
+        if (stripeCustomer.success && stripeCustomer.customer_id) {
+          await updateDoc(doc(db, "usuarios", userCredential.user.uid), {
+            stripeCustomerId: stripeCustomer.customer_id
+          });
+        }
+      } catch (stripeError) {
+        console.error("Erro ao criar cliente no Stripe:", stripeError);
+        // Não interrompe o fluxo de registro se houver erro no Stripe
+      }
+      
       return userCredential;
     } catch (error) {
       throw error;
@@ -58,6 +80,23 @@ export function AuthProvider({ children }) {
           telefone: '',
           isProfileComplete: false
         });
+        
+        // Criar cliente no Stripe
+        try {
+          const stripeCustomer = await criarCliente({
+            user_id: result.user.uid,
+            email: result.user.email,
+            nome: result.user.displayName || result.user.email.split('@')[0]
+          });
+          
+          if (stripeCustomer.success && stripeCustomer.customer_id) {
+            await updateDoc(doc(db, "usuarios", result.user.uid), {
+              stripeCustomerId: stripeCustomer.customer_id
+            });
+          }
+        } catch (stripeError) {
+          console.error("Erro ao criar cliente no Stripe:", stripeError);
+        }
       }
       
       return result;
@@ -83,12 +122,24 @@ export function AuthProvider({ children }) {
     }
   };
   
+  // Atualizar assinatura do usuário
   const updateUserSubscription = async (userId, subscriptionData) => {
     try {
       const userDocRef = doc(db, 'usuarios', userId);
       await updateDoc(userDocRef, { 
         subscription: subscriptionData 
       });
+      
+      // Atualizar o estado de assinatura no contexto
+      setUserSubscription({
+        planId: subscriptionData.planId,
+        planName: subscriptionData.planName,
+        reportsLeft: subscriptionData.reportsLeft,
+        startDate: subscriptionData.startDate,
+        endDate: subscriptionData.endDate,
+        autoRenew: subscriptionData.autoRenew
+      });
+      
       return true;
     } catch (error) {
       console.error("Erro ao atualizar assinatura do usuário:", error);
@@ -96,15 +147,20 @@ export function AuthProvider({ children }) {
     }
   };
   
+  // Decrementar relatórios restantes
   const decrementReportsLeft = async (userId) => {
     try {
-      const userDocRef = doc(db, 'usuarios', userId);
-      const userDoc = await getDoc(userDocRef);
+      // Usar a API para consumir um relatório
+      const response = await consumirRelatorio(userId);
       
-      if (userDoc.exists() && userDoc.data().subscription?.reportsLeft > 0) {
-        await updateDoc(userDocRef, {
-          'subscription.reportsLeft': userDoc.data().subscription.reportsLeft - 1
-        });
+      if (response.success) {
+        // Atualizar o estado local
+        if (userSubscription) {
+          setUserSubscription({
+            ...userSubscription,
+            reportsLeft: userSubscription.reportsLeft - 1
+          });
+        }
         return true;
       }
       return false;
@@ -113,9 +169,41 @@ export function AuthProvider({ children }) {
       throw error;
     }
   };
+  
+  // Carregar informações da assinatura do usuário
+  const loadUserSubscription = async (userId) => {
+    if (!userId) return null;
+    
+    setSubscriptionLoading(true);
+    try {
+      const response = await getPlanoUsuario(userId);
+      
+      if (response.success && response.tem_plano) {
+        const subscription = {
+          planName: response.plano.nome,
+          reportsLeft: response.plano.relatorios_restantes,
+          endDate: new Date(response.plano.data_fim),
+          autoRenew: response.plano.renovacao_automatica,
+        };
+        
+        setUserSubscription(subscription);
+        return subscription;
+      } else {
+        setUserSubscription(null);
+        return null;
+      }
+    } catch (error) {
+      console.error("Erro ao carregar assinatura:", error);
+      setUserSubscription(null);
+      return null;
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
 
   // Logout
   function logout() {
+    setUserSubscription(null);
     return signOut(auth);
   }
 
@@ -123,6 +211,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      
+      if (user) {
+        // Carregar informações da assinatura quando o usuário fizer login
+        loadUserSubscription(user.uid);
+      }
+      
       setLoading(false);
     });
     
@@ -131,6 +225,8 @@ export function AuthProvider({ children }) {
 
   const value = {
     currentUser,
+    userSubscription,
+    subscriptionLoading,
     register,
     login,
     loginWithGoogle,
@@ -138,7 +234,8 @@ export function AuthProvider({ children }) {
     saveUserData,
     updateUserData,
     updateUserSubscription,
-    decrementReportsLeft
+    decrementReportsLeft,
+    loadUserSubscription
   };
 
   return (

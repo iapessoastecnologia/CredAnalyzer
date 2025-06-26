@@ -1,0 +1,197 @@
+.checkout-form {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.3s ease;
+}
+
+.card-element-container {
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--border-radius);
+  background-color: #f9f9f9;
+  margin-top: 0.5rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.card-element-container:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(11, 57, 84, 0.1);
+}
+
+.checkout-button {
+  margin-top: 1.5rem;
+  width: 100%;
+  padding: 0.85rem;
+  font-size: 1.1rem;
+}
+
+.checkout-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.security-info {
+  display: flex;
+  align-items: center;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+}
+
+.secure-icon {
+  margin-right: 0.75rem;
+  font-size: 1.2rem;
+}
+
+/* Estilos para pagamento PIX */
+.pix-checkout {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.3s ease;
+}
+
+.checkout-info {
+  margin-bottom: 1.5rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.pix-code-container {
+  text-align: center;
+}
+
+.pix-code-container h3 {
+  margin-bottom: 1.5rem;
+  font-size: 1.4rem;
+}
+
+.pix-qrcode {
+  margin: 0 auto 1.5rem;
+  max-width: 250px;
+}
+
+.pix-qrcode img {
+  width: 100%;
+  height: auto;
+  border: 1px solid #e0e0e0;
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+}
+
+.pix-copy-section {
+  margin-bottom: 1.5rem;
+}
+
+.pix-copy-box {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--border-radius);
+  margin-top: 0.5rem;
+}
+
+.pix-code {
+  flex-grow: 1;
+  font-family: monospace;
+  word-break: break-all;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.copy-button {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+  margin-left: 0.5rem;
+  transition: background-color 0.3s;
+  box-shadow: none;
+}
+
+.copy-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: none;
+  box-shadow: none;
+}
+
+.pix-instructions {
+  text-align: left;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: rgba(11, 57, 84, 0.05);
+  border-radius: var(--border-radius);
+}
+
+.pix-instructions h4 {
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.pix-instructions ol {
+  padding-left: 1.5rem;
+  margin: 0;
+}
+
+.pix-instructions li {
+  margin-bottom: 0.5rem;
+}
+
+.pix-expiration {
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  color: var(--color-text-light);
+}
+
+.amount {
+  font-size: 1.1rem;
+  color: var(--color-primary);
+  margin-top: 0.5rem;
+}
+
+.verify-button {
+  margin-bottom: 1rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .checkout-form, .pix-checkout {
+    padding: 1.25rem;
+  }
+  
+  .pix-qrcode {
+    max-width: 200px;
+  }
+}
+
+/* Adicionar estilos para o modo de desenvolvimento */
+.dev-mode-notice {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  text-align: center;
+} 
