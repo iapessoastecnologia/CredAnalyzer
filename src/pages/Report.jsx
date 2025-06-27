@@ -25,7 +25,7 @@ function Report() {
   // Criar um identificador de relatório estável
   const reportId = useRef(
     localStorage.getItem('lastReportId') || 
-    `report-${currentUser?.uid || 'guest'}-${Date.now()}`
+    `report-${currentUser?.uid || 'guest'}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
   );
 
   // Verificar se o backend está disponível
@@ -48,74 +48,78 @@ function Report() {
     checkBackendFirebase();
   }, []);
 
-  // Efeito para salvar o relatório no Firestore quando o componente for montado
+  // Verificar se há dados no localStorage e definir novamente se necessário
   useEffect(() => {
-    // Evitar múltiplos salvamentos verificando o localStorage e o ref
-    const isSaved = localStorage.getItem(`report-saved-${reportId.current}`) === 'true';
-    
-    if (isSaved || hasAttemptedSaveRef.current) {
-      console.log('Relatório já foi salvo ou tentativa já realizada');
-      if (isSaved && !savedSuccess) {
-        setSavedSuccess(true);
-      }
+    if (!localStorage.getItem(`report-saved-${reportId.current}`)) {
+      // Se não houver registro de que este relatório foi salvo, preparar para salvá-lo
+      console.log('Não há registro de salvamento para este relatório:', reportId.current);
+      hasAttemptedSaveRef.current = false;
+    }
+  }, []);
+  
+  // Função para salvar o relatório manualmente ou automaticamente
+  const saveReportToFirestore = async (forceOverride = false) => {
+    if (!currentUser) {
+      console.log('Usuário não autenticado, relatório não será salvo');
       return;
     }
     
-    // Marcar que tentativa de salvamento foi iniciada
-    hasAttemptedSaveRef.current = true;
-
-    const saveReportToFirestore = async () => {
-      if (!currentUser) {
-        console.log('Usuário não autenticado, relatório não será salvo');
-        return;
+    // Verificar se temos dados suficientes para salvar
+    if (analysis === "Nenhuma análise disponível.") {
+      console.log('Sem análise para salvar');
+      return;
+    }
+    
+    try {
+      setSavingReport(true);
+      setError(null);
+      
+      // Se forçar o salvamento, resetar o status
+      if (forceOverride) {
+        localStorage.removeItem(`report-saved-${reportId.current}`);
       }
       
-      // Verificar se temos dados suficientes para salvar
-      if (analysis === "Nenhuma análise disponível.") {
-        console.log('Sem análise para salvar');
-        return;
+      // Obter dados de planejamento do localStorage
+      const planningDataJson = localStorage.getItem('planningData');
+      const planningData = planningDataJson ? JSON.parse(planningDataJson) : {};
+      
+      // Obter os documentos enviados
+      const analysisFiles = {};
+      if (location.state && location.state.files) {
+        location.state.files.forEach(file => {
+          // Tentar identificar o tipo de arquivo com base no nome ou metadados
+          let fileType = file.documentType || null;
+          
+          if (!fileType) {
+            const fileName = file.name.toLowerCase();
+            
+            if (fileName.includes('imposto') || fileName.includes('ir')) {
+              fileType = 'incomeTax';
+            } else if (fileName.includes('registro')) {
+              fileType = 'registration';
+            } else if (fileName.includes('fiscal') || fileName.includes('situacao')) {
+              fileType = 'taxStatus';
+            } else if (fileName.includes('faturamento') && fileName.includes('fiscal')) {
+              fileType = 'taxBilling';
+            } else if (fileName.includes('faturamento') && fileName.includes('gerencial')) {
+              fileType = 'managementBilling';
+            }
+          }
+          
+          if (fileType) {
+            analysisFiles[fileType] = file;
+          }
+        });
       }
       
-      try {
-        setSavingReport(true);
-        
-        // Obter dados de planejamento do localStorage
-        const planningDataJson = localStorage.getItem('planningData');
-        const planningData = planningDataJson ? JSON.parse(planningDataJson) : {};
-        
-        // Obter os documentos enviados
-        const analysisFiles = {};
-        if (location.state && location.state.files) {
-          location.state.files.forEach(file => {
-            // Tentar identificar o tipo de arquivo com base no nome ou metadados
-            let fileType = file.documentType || null;
-            
-            if (!fileType) {
-              const fileName = file.name.toLowerCase();
-              
-              if (fileName.includes('imposto') || fileName.includes('ir')) {
-                fileType = 'incomeTax';
-              } else if (fileName.includes('registro')) {
-                fileType = 'registration';
-              } else if (fileName.includes('fiscal') || fileName.includes('situacao')) {
-                fileType = 'taxStatus';
-              } else if (fileName.includes('faturamento') && fileName.includes('fiscal')) {
-                fileType = 'taxBilling';
-              } else if (fileName.includes('faturamento') && fileName.includes('gerencial')) {
-                fileType = 'managementBilling';
-              }
-            }
-            
-            if (fileType) {
-              analysisFiles[fileType] = file;
-            }
-          });
-        }
-        
-        let result;
-        
-        // Salvar usando backend ou frontend
-        if (backendAvailable) {
+      let result;
+      let usedBackend = false;
+      
+      console.log('Salvando relatório, forceOverride=', forceOverride);
+      
+      // Primeiro tentar usar o backend
+      if (backendAvailable) {
+        try {
           // Preparar dados para enviar ao backend
           const formData = new FormData();
           
@@ -134,7 +138,7 @@ function Report() {
             user_name: currentUser.displayName || currentUser.email,
             planning_data: planningData,
             report_content: analysis,
-            report_identifier: reportId.current
+            report_identifier: forceOverride ? `${reportId.current}-force-${Date.now()}` : reportId.current
           };
           
           // Adicionar dados do relatório como JSON string
@@ -143,7 +147,9 @@ function Report() {
           // Enviar para o backend
           const response = await fetch('http://127.0.0.1:8000/save_report/', {
             method: 'POST',
-            body: formData
+            body: formData,
+            // Adicionando timeout para não esperar indefinidamente
+            signal: AbortSignal.timeout(10000) // 10 segundos de timeout
           });
           
           if (!response.ok) {
@@ -152,41 +158,82 @@ function Report() {
           }
           
           result = await response.json();
-        } else {
-          // Usar função do frontend para salvar diretamente no Firestore
-          result = await saveReport(
-            currentUser.uid,
-            currentUser.displayName || currentUser.email,
-            planningData,
-            analysisFiles,
-            analysis,
-            reportId.current
-          );
+          usedBackend = true;
+        } catch (backendError) {
+          console.error('Erro ao usar o backend, tentando salvamento direto:', backendError);
+          // Não lançar o erro aqui, continuaremos com o salvamento direto
         }
-        
-        if (result.success) {
-          // Marcar relatório como salvo no localStorage
-          localStorage.setItem(`report-saved-${reportId.current}`, 'true');
-          localStorage.setItem('lastReportId', reportId.current);
-          setSavedSuccess(true);
-        } else {
-          throw new Error(result.error || 'Erro desconhecido ao salvar relatório');
-        }
-      } catch (error) {
-        console.error('Erro ao salvar relatório:', error);
-        setError('Não foi possível salvar o relatório: ' + error.message);
-      } finally {
-        setSavingReport(false);
       }
-    };
+      
+      // Se o backend falhou ou não está disponível, usar o salvamento direto
+      if (!usedBackend || !result || !result.success) {
+        console.log('Usando salvamento direto pelo frontend');
+        // Usar função do frontend para salvar diretamente no Firestore
+        result = await saveReport(
+          currentUser.uid,
+          currentUser.displayName || currentUser.email,
+          planningData,
+          analysisFiles,
+          analysis,
+          forceOverride ? `${reportId.current}-force-${Date.now()}` : reportId.current
+        );
+      }
+      
+      if (result.success) {
+        // Marcar relatório como salvo no localStorage
+        localStorage.setItem(`report-saved-${reportId.current}`, 'true');
+        localStorage.setItem('lastReportId', reportId.current);
+        setSavedSuccess(true);
+        
+        // Se o relatório já existia, considerar como sucesso também
+        if (result.alreadyExists) {
+          console.log('Relatório já existia no Firestore, considerando como salvo');
+          setSavedSuccess(true);
+        }
+      } else {
+        throw new Error(result.error || 'Erro desconhecido ao salvar relatório');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar relatório:', error);
+      setError('Não foi possível salvar o relatório: ' + error.message);
+      setSavedSuccess(false);
+      
+      // Se houver erro, tentar salvar diretamente após um breve intervalo
+      if (!error.message.includes('Erro de rede')) {
+        // Tentar novamente com uma abordagem diferente após 2 segundos
+        setTimeout(() => {
+          console.log('Tentando novamente com abordagem alternativa...');
+          saveReportToFirestore(true);
+        }, 2000);
+      }
+    } finally {
+      setSavingReport(false);
+    }
+  };
+
+  // Efeito para salvar o relatório no Firestore quando o componente for montado
+  useEffect(() => {
+    // Evitar múltiplos salvamentos verificando apenas o localStorage
+    // (ignora hasAttemptedSaveRef que pode estar causando o problema)
+    const isSaved = localStorage.getItem(`report-saved-${reportId.current}`) === 'true';
     
+    if (isSaved) {
+      console.log('Relatório já foi salvo conforme localStorage');
+      setSavedSuccess(true);
+      return;
+    }
+    
+    console.log('Iniciando tentativa de salvamento para o relatório:', reportId.current);
+    // Marcar que tentativa de salvamento foi iniciada (mantido por compatibilidade)
+    hasAttemptedSaveRef.current = true;
+
     // Executar o salvamento com um pequeno atraso para evitar chamadas múltiplas
     const timer = setTimeout(() => {
-      saveReportToFirestore();
+      saveReportToFirestore(false);
     }, 100);
     
     return () => clearTimeout(timer);
-  }, [currentUser, location.state, analysis, backendAvailable, savedSuccess]);
+  }, [currentUser, location.state, analysis, backendAvailable]);
 
   const handleDownloadPDF = async () => {
     // Obter o conteúdo HTML do relatório

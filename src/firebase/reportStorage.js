@@ -5,71 +5,109 @@ import { db } from './config';
 export const saveReport = async (userId, userName, planningData, analysisFiles, reportContent, reportIdentifier = null) => {
   try {
     console.log(`Tentando salvar relatório com identificador: ${reportIdentifier}`);
+    console.log(`Dados do usuário: ${userId}, ${userName}`);
+    console.log(`Tamanho do conteúdo: ${reportContent?.length || 0} caracteres`);
     
-    // Verificar se já existe um relatório com este identificador (se fornecido)
-    if (reportIdentifier) {
+    let isDuplicado = false;
+    
+    try {
+      // Verificar se já existe um relatório com este identificador (se fornecido)
+      if (reportIdentifier) {
+        try {
+          const relatoriosRef = collection(db, 'relatorios');
+          const q = query(
+            relatoriosRef, 
+            where('identificadorRelatorio', '==', reportIdentifier)
+          );
+          
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            console.log("Relatório com este identificador já existe, não será salvo novamente");
+            isDuplicado = true;
+            return { 
+              success: true, 
+              reportId: querySnapshot.docs[0].id, 
+              alreadyExists: true 
+            };
+          }
+        } catch (error) {
+          console.error("Erro ao verificar existência do relatório:", error);
+          // Continuar com o salvamento mesmo que a verificação falhe
+        }
+      }
+      
+      // Verificar também se há relatórios recentes para este usuário com conteúdo idêntico
+      // para evitar duplicações mesmo sem identificador
       try {
+        // Limitamos a busca aos últimos 5 minutos para evitar verificações demoradas
+        const cincoMinutosAtras = new Date();
+        cincoMinutosAtras.setMinutes(cincoMinutosAtras.getMinutes() - 5);
+        
         const relatoriosRef = collection(db, 'relatorios');
         const q = query(
           relatoriosRef, 
-          where('identificadorRelatorio', '==', reportIdentifier)
+          where('usuarioId', '==', userId)
         );
         
         const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          console.log("Relatório com este identificador já existe, não será salvo novamente");
+        let relatorioDuplicado = false;
+        
+        querySnapshot.forEach(doc => {
+          const dados = doc.data();
+          // Verificar só os relatórios recentes com conteúdo idêntico
+          if (dados.conteudoRelatorio === reportContent) {
+            // Verificar se tem timestamp e se é recente
+            let isRecente = false;
+            
+            if (dados.timestamp && typeof dados.timestamp.toMillis === 'function') {
+              // Usar o método toMillis do Timestamp do Firestore
+              isRecente = dados.timestamp.toMillis() > cincoMinutosAtras.getTime();
+            } else if (dados.dataCriacao) {
+              // Usar a data de criação como fallback
+              const dataCriacaoMs = new Date(dados.dataCriacao).getTime();
+              isRecente = dataCriacaoMs > cincoMinutosAtras.getTime();
+            } else {
+              // Se não tem nenhuma data, assumir que é recente
+              isRecente = true;
+            }
+            
+            if (isRecente) {
+              relatorioDuplicado = true;
+              console.log("Relatório com conteúdo idêntico encontrado (últimos 5 min), não será salvo novamente");
+            }
+          }
+        });
+        
+        if (relatorioDuplicado) {
+          isDuplicado = true;
           return { 
             success: true, 
-            reportId: querySnapshot.docs[0].id, 
+            reportId: "existente", 
             alreadyExists: true 
           };
         }
       } catch (error) {
-        console.error("Erro ao verificar existência do relatório:", error);
-        // Continuar com o salvamento mesmo que a verificação falhe
+        console.error("Erro ao verificar relatórios duplicados:", error);
+        // Continuar mesmo que a verificação falhe
       }
+    } catch (err) {
+      console.error("Erro nas verificações iniciais, continuando com o salvamento:", err);
+      // Se houver erro nas verificações, continuar com o salvamento
     }
     
-    // Verificar também se há relatórios recentes para este usuário com conteúdo idêntico
-    // para evitar duplicações mesmo sem identificador
-    try {
-      // Limitamos a busca aos últimos 5 minutos para evitar verificações demoradas
-      const cincoMinutosAtras = new Date();
-      cincoMinutosAtras.setMinutes(cincoMinutosAtras.getMinutes() - 5);
-      
-      const relatoriosRef = collection(db, 'relatorios');
-      const q = query(
-        relatoriosRef, 
-        where('usuarioId', '==', userId),
-        // Não podemos comparar com timestamp do Firestore, então verificamos após a busca
-      );
-      
-      const querySnapshot = await getDocs(q);
-      let relatorioDuplicado = false;
-      
-      querySnapshot.forEach(doc => {
-        const dados = doc.data();
-        // Verificar só os relatórios recentes
-        if (
-          dados.conteudoRelatorio === reportContent && 
-          (!dados.timestamp || dados.timestamp.toMillis() > cincoMinutosAtras.getTime())
-        ) {
-          relatorioDuplicado = true;
-          console.log("Relatório com conteúdo idêntico encontrado (últimos 5 min), não será salvo novamente");
-          return;
-        }
-      });
-      
-      if (relatorioDuplicado) {
-        return { 
-          success: true, 
-          reportId: "existente", 
-          alreadyExists: true 
-        };
-      }
-    } catch (error) {
-      console.error("Erro ao verificar relatórios duplicados:", error);
-      // Continuar mesmo que a verificação falhe
+    // Se identificador contém "force", ignorar verificações de duplicidade
+    if (reportIdentifier && reportIdentifier.includes("force")) {
+      console.log("Identificador contém 'force', ignorando verificações de duplicidade");
+      isDuplicado = false;
+    }
+    
+    // Se foi identificado como duplicado pelas verificações, retornar sucesso
+    if (isDuplicado) {
+      return { 
+        success: true, 
+        reportId: "existente", 
+        alreadyExists: true 
+      };
     }
     
     // Preparar os dados de planejamento
@@ -126,6 +164,8 @@ export const saveReport = async (userId, userName, planningData, analysisFiles, 
       identificadorRelatorio: reportIdentifier || `${userId}-${Date.now()}`,
       dataCriacao: new Date().toISOString() // Adicionar data de criação explícita para facilitar consultas
     };
+    
+    console.log("Tentando salvar no Firestore com ID gerado automaticamente");
     
     // Salvar no Firestore com ID gerado automaticamente
     const reportsCollection = collection(db, 'relatorios');
