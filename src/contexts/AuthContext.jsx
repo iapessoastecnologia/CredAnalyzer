@@ -11,6 +11,9 @@ import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { criarCliente, getPlanoUsuario, consumirRelatorio } from '../services/paymentService';
 
+// Flag para modo de desenvolvimento
+const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || true;
+
 const AuthContext = createContext();
 
 export function useAuth() {
@@ -30,7 +33,9 @@ export function AuthProvider({ children }) {
       // Salvar dados adicionais do usuário no Firestore
       await saveUserData(userCredential.user.uid, {
         ...userData,
-        email: email
+        email: email,
+        creditosRestantes: 0, // Inicia com zero créditos
+        temPlano: false // Flag indicando que o usuário não tem plano
       });
       
       // Criar cliente no Stripe
@@ -78,7 +83,9 @@ export function AuthProvider({ children }) {
           nome: result.user.displayName || '',
           email: result.user.email,
           telefone: '',
-          isProfileComplete: false
+          isProfileComplete: false,
+          creditosRestantes: 0, // Inicia com zero créditos
+          temPlano: false // Flag indicando que o usuário não tem plano
         });
         
         // Criar cliente no Stripe
@@ -127,7 +134,9 @@ export function AuthProvider({ children }) {
     try {
       const userDocRef = doc(db, 'usuarios', userId);
       await updateDoc(userDocRef, { 
-        subscription: subscriptionData 
+        subscription: subscriptionData,
+        creditosRestantes: subscriptionData.reportsLeft,
+        temPlano: true
       });
       
       // Atualizar o estado de assinatura no contexto
@@ -150,20 +159,51 @@ export function AuthProvider({ children }) {
   // Decrementar relatórios restantes
   const decrementReportsLeft = async (userId) => {
     try {
+      // Obter documento atual do usuário para verificar créditos
+      const userDocRef = doc(db, 'usuarios', userId);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        throw new Error("Usuário não encontrado");
+      }
+      
+      const userData = userDoc.data();
+      
+      // Verificar se o usuário tem créditos disponíveis
+      if (!userData.creditosRestantes || userData.creditosRestantes <= 0) {
+        return { 
+          success: false,
+          error: "Sem créditos disponíveis",
+          needsUpgrade: true
+        };
+      }
+      
       // Usar a API para consumir um relatório
       const response = await consumirRelatorio(userId);
       
       if (response.success) {
+        // Atualizar o documento do usuário
+        const novosCreditos = Math.max(0, userData.creditosRestantes - 1);
+        
+        await updateDoc(userDocRef, {
+          creditosRestantes: novosCreditos
+        });
+        
         // Atualizar o estado local
         if (userSubscription) {
           setUserSubscription({
             ...userSubscription,
-            reportsLeft: userSubscription.reportsLeft - 1
+            reportsLeft: novosCreditos
           });
         }
-        return true;
+        
+        return { 
+          success: true,
+          creditosRestantes: novosCreditos
+        };
       }
-      return false;
+      
+      return { success: false };
     } catch (error) {
       console.error("Erro ao decrementar relatórios restantes:", error);
       throw error;
@@ -176,12 +216,60 @@ export function AuthProvider({ children }) {
     
     setSubscriptionLoading(true);
     try {
+      // Obter o documento do usuário primeiro
+      const userDoc = await getDoc(doc(db, "usuarios", userId));
+      
+      if (!userDoc.exists()) {
+        setUserSubscription(null);
+        setSubscriptionLoading(false);
+        return null;
+      }
+      
+      const userData = userDoc.data();
+      
+      // Se o usuário não tem plano, retornar null
+      if (!userData.temPlano) {
+        setUserSubscription(null);
+        setSubscriptionLoading(false);
+        return null;
+      }
+      
       const response = await getPlanoUsuario(userId);
       
+      // Se está em modo de desenvolvimento e não tem plano cadastrado no backend
+      if (DEV_MODE && (!response.success || !response.tem_plano)) {
+        // Verificar se temos dados mockados no localStorage
+        const mockUserDataJson = localStorage.getItem('mock_user_data_' + userId);
+        
+        if (mockUserDataJson) {
+          const mockUserData = JSON.parse(mockUserDataJson);
+          
+          if (mockUserData.temPlano && mockUserData.plano) {
+            const subscription = {
+              planName: mockUserData.plano.nome,
+              reportsLeft: mockUserData.plano.relatorios_restantes,
+              endDate: new Date(mockUserData.plano.data_fim),
+              autoRenew: mockUserData.plano.renovacao_automatica,
+            };
+            
+            setUserSubscription(subscription);
+            
+            // Também atualizar o documento do usuário para consistência
+            await updateDoc(doc(db, "usuarios", userId), {
+              creditosRestantes: mockUserData.plano.relatorios_restantes,
+              temPlano: true
+            });
+            
+            return subscription;
+          }
+        }
+      }
+      
       if (response.success && response.tem_plano) {
+        // Usar creditosRestantes do documento do usuário para maior precisão
         const subscription = {
           planName: response.plano.nome,
-          reportsLeft: response.plano.relatorios_restantes,
+          reportsLeft: userData.creditosRestantes || response.plano.relatorios_restantes,
           endDate: new Date(response.plano.data_fim),
           autoRenew: response.plano.renovacao_automatica,
         };

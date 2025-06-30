@@ -43,56 +43,12 @@ const MOCK_DATA = {
     qrcode_image_url: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg',
     pix_code: '00020101021226890014br.gov.bcb.pix2567pix-qrcode.mercadopago.com/instore/o/v2/7d15a5e8-fe5e-4022-8130-3c91f3bd3f433204000053039865802BR5925MERCADOPAGO MER DE PAGTOS6009SAO PAULO62070503***63044B5C'
   },
-  cards: [
-    {
-      id: 'pm_mock_visa',
-      brand: 'visa',
-      last4: '4242',
-      exp_month: '12',
-      exp_year: '2025',
-      name: 'Cartão Visa',
-      isDefault: true
-    },
-    {
-      id: 'pm_mock_mastercard',
-      brand: 'mastercard',
-      last4: '5555',
-      exp_month: '10',
-      exp_year: '2024',
-      name: 'Cartão Mastercard',
-      isDefault: false
-    }
-  ],
-  payments: [
-    {
-      id: 'payment_mock_1',
-      amount: 3500,
-      currency: 'brl',
-      status: 'succeeded',
-      created: Date.now() / 1000 - 86400,
-      payment_method_details: { type: 'card' },
-      description: 'Plano Básico - Assinatura Mensal'
-    },
-    {
-      id: 'payment_mock_2',
-      amount: 7500,
-      currency: 'brl',
-      status: 'succeeded',
-      created: Date.now() / 1000 - 86400 * 30,
-      payment_method_details: { type: 'pix' },
-      description: 'Plano Premium - Pagamento único'
-    }
-  ],
+  cards: [], // Removidos cartões padrão
+  payments: [], // Removido histórico de pagamentos padrão
   planoUsuario: {
     success: true,
-    tem_plano: true,
-    plano: {
-      nome: 'Plano Premium',
-      relatorios_restantes: 65,
-      renovacao_automatica: true,
-      data_inicio: new Date(Date.now() - 86400000 * 5).toISOString(),
-      data_fim: new Date(Date.now() + 86400000 * 25).toISOString()
-    }
+    tem_plano: false, // Usuário não tem plano por padrão
+    plano: null
   }
 };
 
@@ -133,7 +89,27 @@ export const getPlanoUsuario = async (userId) => {
   try {
     // Modo de desenvolvimento - retorna dados simulados
     if (DEV_MODE) {
-      return MOCK_DATA.planoUsuario;
+      // Verificar se o usuário existe no localStorage
+      const userData = localStorage.getItem('mock_user_data_' + userId);
+      
+      if (userData) {
+        // Se temos dados do usuário, verificar se ele tem plano
+        const parsedData = JSON.parse(userData);
+        if (parsedData.temPlano) {
+          return {
+            success: true,
+            tem_plano: true,
+            plano: parsedData.plano
+          };
+        }
+      }
+      
+      // Por padrão retornar que não tem plano
+      return {
+        success: true,
+        tem_plano: false,
+        plano: null
+      };
     }
 
     const response = await fetch(`${API_BASE_URL}/stripe/plano/${userId}`);
@@ -233,9 +209,21 @@ export const listarCartoes = async (customerId) => {
   try {
     // Modo de desenvolvimento - retorna dados simulados
     if (DEV_MODE) {
+      // Verificar se o usuário tem cartões salvos no localStorage
+      const userCardsKey = 'mock_user_cards_' + customerId;
+      const savedCards = localStorage.getItem(userCardsKey);
+      
+      if (savedCards) {
+        return {
+          success: true,
+          cards: JSON.parse(savedCards)
+        };
+      }
+      
+      // Por padrão, retornar lista vazia
       return {
         success: true,
-        cards: MOCK_DATA.cards
+        cards: []
       };
     }
 
@@ -275,7 +263,21 @@ export const adicionarCartao = async (cardData) => {
         isDefault: cardData.set_default
       };
       
-      MOCK_DATA.cards.push(newCard);
+      // Verificar se temos cartões salvos para o usuário
+      const userCardsKey = 'mock_user_cards_' + cardData.customer_id;
+      const savedCardsJson = localStorage.getItem(userCardsKey);
+      const savedCards = savedCardsJson ? JSON.parse(savedCardsJson) : [];
+      
+      // Se o novo cartão é padrão, remover padrão dos outros
+      if (newCard.isDefault) {
+        savedCards.forEach(card => card.isDefault = false);
+      }
+      
+      // Adicionar o novo cartão
+      savedCards.push(newCard);
+      
+      // Salvar no localStorage
+      localStorage.setItem(userCardsKey, JSON.stringify(savedCards));
       
       return {
         success: true,
@@ -383,9 +385,21 @@ export const obterHistoricoPagamentos = async (userId) => {
   try {
     // Modo de desenvolvimento - retorna dados simulados
     if (DEV_MODE) {
+      // Verificar se o usuário tem um histórico de pagamentos no localStorage
+      const userPaymentsKey = 'mock_user_payments_' + userId;
+      const savedPayments = localStorage.getItem(userPaymentsKey);
+      
+      if (savedPayments) {
+        return {
+          success: true,
+          payments: JSON.parse(savedPayments)
+        };
+      }
+      
+      // Por padrão, retornar lista vazia
       return {
         success: true,
-        payments: MOCK_DATA.payments
+        payments: []
       };
     }
 
@@ -445,19 +459,45 @@ export const consumirRelatorio = async (userId) => {
   try {
     // Modo de desenvolvimento - retorna dados simulados
     if (DEV_MODE) {
-      if (MOCK_DATA.planoUsuario.plano.relatorios_restantes > 0) {
-        MOCK_DATA.planoUsuario.plano.relatorios_restantes -= 1;
-        
-        return {
-          success: true,
-          relatorios_restantes: MOCK_DATA.planoUsuario.plano.relatorios_restantes
-        };
-      } else {
+      // Verificar se o usuário existe no localStorage
+      const userDataJson = localStorage.getItem('mock_user_data_' + userId);
+      
+      if (!userDataJson) {
         return {
           success: false,
-          error: 'Não há relatórios disponíveis'
+          error: 'Usuário não encontrado',
+          needsUpgrade: true
         };
       }
+      
+      const userData = JSON.parse(userDataJson);
+      
+      // Verificar se tem plano ativo
+      if (!userData.temPlano || !userData.plano) {
+        return {
+          success: false,
+          error: 'Sem plano ativo',
+          needsUpgrade: true
+        };
+      }
+      
+      // Verificar se tem relatórios disponíveis
+      if (userData.plano.relatorios_restantes <= 0) {
+        return {
+          success: false,
+          error: 'Não há relatórios disponíveis',
+          needsUpgrade: true
+        };
+      }
+      
+      // Decrementar e salvar
+      userData.plano.relatorios_restantes -= 1;
+      localStorage.setItem('mock_user_data_' + userId, JSON.stringify(userData));
+      
+      return {
+        success: true,
+        relatorios_restantes: userData.plano.relatorios_restantes
+      };
     }
 
     const response = await fetch(`${API_BASE_URL}/stripe/consumir_relatorio/${userId}`, {

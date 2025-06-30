@@ -1,23 +1,68 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/Processing.css';
 
 function Processing() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { currentUser, userSubscription } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [progress, setProgress] = useState('Iniciando análise...');
-  const [currentStep, setCurrentStep] = useState(1);
+  const [progress, setProgress] = useState('Verificando créditos disponíveis...');
+  const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps] = useState(3);
+  const [creditosVerificados, setCreditosVerificados] = useState(false);
 
   const updateProgress = (step, message) => {
     setCurrentStep(step);
     setProgress(message);
   };
 
+  // Verificar créditos antes de processar documentos
   useEffect(() => {
+    async function verificarCreditos() {
+      if (!currentUser) {
+        setError('Usuário não autenticado.');
+        setLoading(false);
+        return false;
+      }
+
+      try {
+        // Verificar se o usuário tem plano e créditos suficientes
+        if (!userSubscription || !userSubscription.reportsLeft || userSubscription.reportsLeft <= 0) {
+          setError('Você não possui créditos suficientes para gerar relatórios. Adquira um plano para continuar.');
+          setLoading(false);
+          
+          // Mostrar erro por 3 segundos e depois redirecionar para a página de pagamento
+          setTimeout(() => {
+            navigate('/payment', { state: { needsUpgrade: true } });
+          }, 3000);
+          
+          return false;
+        }
+        
+        // Usuário tem créditos, pode prosseguir
+        setCreditosVerificados(true);
+        return true;
+      } catch (err) {
+        console.error("Erro ao verificar créditos:", err);
+        setError('Erro ao verificar seus créditos disponíveis. Tente novamente.');
+        setLoading(false);
+        return false;
+      }
+    }
+    
+    verificarCreditos();
+  }, [currentUser, navigate, userSubscription]);
+
+  useEffect(() => {
+    // Só continuar o processamento se os créditos já foram verificados e são suficientes
+    if (!creditosVerificados) {
+      return;
+    }
+    
     async function sendFiles() {
       if (!location.state || !location.state.files) {
         setError('Nenhum arquivo enviado para análise.');
@@ -142,7 +187,7 @@ function Processing() {
     }
 
     checkBackendHealth();
-  }, [location.state, navigate]);
+  }, [location.state, navigate, creditosVerificados]);
 
   if (error) {
     return (
@@ -150,15 +195,26 @@ function Processing() {
         <h1>Erro no Processamento</h1>
         <div className="error-details">
           <p className="error-message">{error}</p>
-          <div className="error-help">
-            <h3>Possíveis soluções:</h3>
-            <ul>
-              <li>Verifique se o backend está rodando: <code>uvicorn main:app --reload</code></li>
-              <li>Verifique se a OPENAI_API_KEY está configurada no arquivo .env</li>
-              <li>Tente com arquivos menores (máximo 10MB cada)</li>
-              <li>Verifique sua conexão com a internet</li>
-            </ul>
-          </div>
+          {error.includes('créditos suficientes') ? (
+            <div className="error-help">
+              <button 
+                onClick={() => navigate('/payment')} 
+                className="upgrade-button"
+              >
+                Adquirir Plano
+              </button>
+            </div>
+          ) : (
+            <div className="error-help">
+              <h3>Possíveis soluções:</h3>
+              <ul>
+                <li>Verifique se o backend está rodando: <code>uvicorn main:app --reload</code></li>
+                <li>Verifique se a OPENAI_API_KEY está configurada no arquivo .env</li>
+                <li>Tente com arquivos menores (máximo 10MB cada)</li>
+                <li>Verifique sua conexão com a internet</li>
+              </ul>
+            </div>
+          )}
         </div>
         <button 
           onClick={() => navigate('/analysis')} 
@@ -172,10 +228,12 @@ function Processing() {
 
   return (
     <div className="processing-container">
-      <div className="document"></div>
-      <div className="document"></div>
-      <div className="document"></div>
-      <div className="document"></div>
+      <div className="processing-background">
+        <div className="document"></div>
+        <div className="document"></div>
+        <div className="document"></div>
+        <div className="document"></div>
+      </div>
       <div className="processing-content">
         <h1>Processando Documentos</h1>
         <div className="progress-info">

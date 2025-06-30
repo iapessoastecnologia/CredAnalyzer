@@ -11,7 +11,7 @@ function Report() {
   const navigate = useNavigate();
   const location = useLocation();
   const reportContentRef = useRef(null);
-  const { currentUser } = useAuth();
+  const { currentUser, decrementReportsLeft } = useAuth();
   const [savingReport, setSavingReport] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [error, setError] = useState(null);
@@ -180,6 +180,13 @@ function Report() {
       }
       
       if (result.success) {
+        // Decrementar créditos disponíveis do usuário
+        const decrementResult = await decrementReportsLeft(currentUser.uid);
+        
+        if (!decrementResult.success) {
+          throw new Error('Erro ao decrementar créditos');
+        }
+        
         // Marcar relatório como salvo no localStorage
         localStorage.setItem(`report-saved-${reportId.current}`, 'true');
         localStorage.setItem('lastReportId', reportId.current);
@@ -274,7 +281,7 @@ function Report() {
           className="download-btn"
           onClick={handleDownloadPDF}
         >
-        Baixar Relatório PDF
+          Baixar Relatório PDF
         </button>
 
         <button

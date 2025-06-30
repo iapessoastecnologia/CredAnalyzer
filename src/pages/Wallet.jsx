@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import '../styles/Wallet.css';
 import { listarCartoes, definirCartaoPadrao, removerCartao, adicionarCartao, obterHistoricoPagamentos, cancelarAssinatura, getPlanoUsuario } from '../services/paymentService';
@@ -31,6 +31,15 @@ function Wallet() {
     if (location.state?.paymentSuccess) {
       setSaveMessage('Pagamento realizado com sucesso!');
       setTimeout(() => setSaveMessage(''), 3000);
+      
+      // Verificar se um cartão foi adicionado
+      if (location.state?.cardAdded) {
+        // Definir a aba ativa para cartões
+        setActiveTab('cards');
+        // Exibir mensagem de cartão adicionado
+        setSaveMessage('Seu cartão foi adicionado como forma de pagamento principal.');
+        setTimeout(() => setSaveMessage(''), 5000);
+      }
     }
   }, [location]);
 
@@ -257,15 +266,57 @@ function Wallet() {
     try {
       setLoading(true);
       
-      const response = await cancelarAssinatura(currentUser.uid);
+      // Obter o estado atual
+      const currentAutoRenewState = userSubscription.autoRenew;
+      
+      // Chamar API com base no estado atual (para inverter)
+      let response;
+      
+      if (currentAutoRenewState) {
+        // Desativar a renovação automática
+        response = await cancelarAssinatura(currentUser.uid);
+      } else {
+        // Ativar a renovação automática (Simularemos uma API)
+        response = { 
+          success: true,
+          message: 'Renovação automática ativada com sucesso'
+        };
+        
+        // Em produção seria algo como:
+        // response = await reativarAssinatura(currentUser.uid);
+        
+        if (DEV_MODE) {
+          // Atualizar o mock data
+          MOCK_DATA.planoUsuario.plano.renovacao_automatica = true;
+        }
+      }
       
       if (response.success) {
+        // Atualizar o estado local
         setUserSubscription({
           ...userSubscription,
-          autoRenew: false
+          autoRenew: !currentAutoRenewState
         });
         
-        setSaveMessage('Renovação automática desativada!');
+        // Atualizar os dados do usuário no Firestore com o novo estado
+        const userDocRef = doc(db, 'usuarios', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.subscription) {
+            await updateDoc(userDocRef, {
+              'subscription.autoRenew': !currentAutoRenewState
+            });
+          }
+        }
+        
+        // Mostrar mensagem apropriada
+        const message = currentAutoRenewState 
+          ? 'Renovação automática desativada!' 
+          : 'Renovação automática ativada!';
+          
+        setSaveMessage(message);
         setTimeout(() => setSaveMessage(''), 3000);
       } else {
         setError(response.error || 'Erro ao alterar renovação automática');
@@ -552,7 +603,7 @@ function Wallet() {
                                 type="checkbox" 
                                 checked={userSubscription.autoRenew}
                                 onChange={handleToggleAutoRenew}
-                                disabled={!userSubscription.autoRenew}
+                                disabled={loading}
                               />
                               <span className="slider"></span>
                             </label>

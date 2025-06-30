@@ -16,6 +16,7 @@ function Payment() {
   const [paymentMethod, setPaymentMethod] = useState('credit');
   const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, processing, success, error
   const [paymentError, setPaymentError] = useState(null);
+  const [showCardAddedModal, setShowCardAddedModal] = useState(false);
   const [plans, setPlans] = useState([
     {
       id: 'basic',
@@ -90,9 +91,76 @@ function Payment() {
         }
       };
       
-      // Em modo de desenvolvimento, podemos simular um atraso
+      // Em modo de desenvolvimento, simular atualização no localStorage
       if (isDev) {
         await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Criar plano mockado para o usuário no localStorage
+        const mockUserData = {
+          temPlano: true,
+          plano: {
+            nome: selectedPlan.nome,
+            relatorios_restantes: selectedPlan.relatorios,
+            renovacao_automatica: paymentMethod === 'credit',
+            data_inicio: new Date().toISOString(),
+            data_fim: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+          }
+        };
+        
+        // Salvar no localStorage
+        localStorage.setItem('mock_user_data_' + currentUser.uid, JSON.stringify(mockUserData));
+        
+        // Se for pagamento com cartão, adicionar cartão nas formas de pagamento
+        if (paymentMethod === 'credit') {
+          const userCardsKey = 'mock_user_cards_' + currentUser.uid;
+          const savedCardsJson = localStorage.getItem(userCardsKey);
+          const savedCards = savedCardsJson ? JSON.parse(savedCardsJson) : [];
+          
+          // Adicionar novo cartão de crédito simulado
+          const newCard = {
+            id: `pm_mock_${Date.now()}`,
+            brand: 'visa',
+            last4: '4242',
+            exp_month: '12',
+            exp_year: '2025',
+            name: 'Cartão de Pagamento',
+            isDefault: true
+          };
+          
+          // Se o novo cartão é padrão, remover padrão dos outros
+          if (newCard.isDefault) {
+            savedCards.forEach(card => card.isDefault = false);
+          }
+          
+          // Adicionar o novo cartão
+          savedCards.push(newCard);
+          
+          // Salvar no localStorage
+          localStorage.setItem(userCardsKey, JSON.stringify(savedCards));
+        }
+        
+        // Adicionar histórico de pagamento
+        const userPaymentsKey = 'mock_user_payments_' + currentUser.uid;
+        const savedPaymentsJson = localStorage.getItem(userPaymentsKey);
+        const savedPayments = savedPaymentsJson ? JSON.parse(savedPaymentsJson) : [];
+        
+        // Criar novo pagamento
+        const newPayment = {
+          id: 'payment_mock_' + Date.now(),
+          amount: selectedPlan.preco * 100,
+          currency: 'brl',
+          status: 'succeeded',
+          created: Date.now() / 1000,
+          payment_method_details: { type: paymentMethod },
+          description: `${selectedPlan.nome} - ${paymentMethod === 'credit' ? 'Assinatura Mensal' : 'Pagamento único'}`
+        };
+        
+        // Adicionar ao histórico
+        savedPayments.push(newPayment);
+        
+        // Salvar no localStorage
+        localStorage.setItem(userPaymentsKey, JSON.stringify(savedPayments));
+        
       } else {
         await updateUserSubscription(currentUser.uid, subscriptionData);
       }
@@ -100,18 +168,30 @@ function Payment() {
       // Atualizar UI
       setPaymentStatus('success');
       
-      // Navegação após sucesso (com um pequeno delay para mostrar o status de sucesso)
-      setTimeout(() => {
-        navigate('/wallet', { 
-          state: { paymentSuccess: true, plan: selectedPlan } 
-        });
-      }, 2000);
+      // Se o pagamento foi feito com cartão, exibir o modal
+      if (paymentMethod === 'credit') {
+        setShowCardAddedModal(true);
+      } else {
+        // Se não foi com cartão, redirecionar normalmente após um pequeno delay
+        setTimeout(() => {
+          navigate('/wallet', { 
+            state: { paymentSuccess: true, plan: selectedPlan } 
+          });
+        }, 2000);
+      }
       
     } catch (error) {
       console.error('Erro ao atualizar assinatura:', error);
       setPaymentStatus('error');
       setPaymentError('O pagamento foi processado, mas houve um erro ao atualizar sua assinatura. Por favor, contate o suporte.');
     }
+  };
+
+  const handleCardAddedModalClose = () => {
+    setShowCardAddedModal(false);
+    navigate('/wallet', { 
+      state: { paymentSuccess: true, plan: selectedPlan, cardAdded: true } 
+    });
   };
 
   const handlePaymentError = (error) => {
@@ -290,6 +370,20 @@ function Payment() {
 
       {/* Exibir status do pagamento */}
       {paymentStatus !== 'pending' && renderPaymentStatus()}
+
+      {/* Modal para informar sobre adição do cartão */}
+      {showCardAddedModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Pagamento Processado com Sucesso!</h3>
+            <p>O cartão utilizado foi adicionado como forma de pagamento principal em sua carteira.</p>
+            <p>Você pode gerenciar seus cartões a qualquer momento na seção "Carteira".</p>
+            <button onClick={handleCardAddedModalClose} className="modal-button">
+              Entendi
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
