@@ -7,10 +7,13 @@ import CheckoutForm from '../components/CheckoutForm';
 import PixCheckout from '../components/PixCheckout';
 import '../styles/Payment.css';
 import '../styles/CheckoutForm.css';
-import { getPlanos } from '../services/paymentService';
+import { getPlanos, criarCheckoutPagamento, criarCheckoutAssinatura, criarPagamentoPix, registrarPagamento } from '../services/paymentService';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 function Payment() {
-  const { currentUser, updateUserSubscription } = useAuth();
+  const auth = useAuth();
+  const currentUser = auth?.currentUser;
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('credit');
@@ -42,7 +45,12 @@ function Payment() {
   ]);
   
   // Flag para modo de desenvolvimento
-  const isDev = import.meta.env.VITE_DEV_MODE === 'true' || true;
+  const isDev = import.meta.env.VITE_DEV_MODE === 'true';
+  
+  // Log para depuração
+  useEffect(() => {
+    console.log('[DEBUG PAYMENT] Componente Payment montado, currentUser:', currentUser ? 'autenticado' : 'não autenticado');
+  }, [currentUser]);
 
   // Carregar planos
   useEffect(() => {
@@ -74,116 +82,178 @@ function Payment() {
 
   const handlePaymentSuccess = async (paymentData) => {
     try {
+      console.log('[DEBUG PAYMENT] Processando pagamento:', paymentData);
       setPaymentStatus('processing');
+      
+      // Se for PIX e status for awaiting_payment ou não for succeeded, não finalizar o processo ainda
+      if (paymentMethod === 'pix' && 
+         (paymentData.status === 'awaiting_payment' || paymentData.status !== 'succeeded')) {
+        console.log('[DEBUG PAYMENT] Pagamento PIX aguardando confirmação. Aguarde...');
+        return; // Não prosseguir até que o PIX seja confirmado
+      }
+      
+      // Verificar se este pagamento já foi processado anteriormente
+      // Usar localStorage para rastrear pagamentos processados na sessão atual
+      const processedPaymentsKey = `processed_payments_${currentUser.uid}`;
+      const processedPayments = JSON.parse(localStorage.getItem(processedPaymentsKey) || '[]');
+      const paymentId = paymentData.paymentId || paymentData.id || `payment_${Date.now()}`;
+      
+      if (processedPayments.includes(paymentId)) {
+        console.log('[DEBUG PAYMENT] Este pagamento já foi processado anteriormente:', paymentId);
+        
+        // Mesmo assim, atualizar a UI para mostrar sucesso
+        setPaymentStatus('success');
+        
+        // Redirecionar após um pequeno delay
+        setTimeout(() => {
+          navigate('/wallet', { 
+            state: { paymentSuccess: true, plan: selectedPlan } 
+          });
+        }, 1000);
+        
+        return;
+      }
+      
+      // Verificar se o usuário já possui um plano e créditos restantes
+      let creditosExistentes = 0;
+      let planoAnterior = null;
+      
+      try {
+        const userDoc = await getDoc(doc(db, "usuarios", currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // Verificar se o usuário já tem créditos
+          if (userData.creditosRestantes && userData.creditosRestantes > 0) {
+            creditosExistentes = userData.creditosRestantes;
+            console.log('[DEBUG PAYMENT] Usuário possui créditos existentes:', creditosExistentes);
+          }
+          
+          // Verificar se já tem plano para registrar o plano anterior
+          if (userData.subscription && userData.subscription.planName) {
+            planoAnterior = userData.subscription.planName;
+            console.log('[DEBUG PAYMENT] Plano anterior do usuário:', planoAnterior);
+          }
+        }
+      } catch (error) {
+        console.error('[DEBUG PAYMENT] Erro ao verificar créditos existentes:', error);
+        // Continuar mesmo com erro - não é crítico
+      }
       
       // Atualizar o status da assinatura no Firebase
       const subscriptionData = {
         planId: selectedPlan.id,
         planName: selectedPlan.nome,
-        reportsLeft: selectedPlan.relatorios,
+        reportsLeft: selectedPlan.relatorios + creditosExistentes, // Somar os créditos existentes
         startDate: new Date(),
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
         autoRenew: paymentMethod === 'credit', // Renovação automática só para cartão
-        paymentInfo: {
-          lastPaymentDate: new Date(),
-          paymentId: paymentData.paymentId || paymentData.id,
-          paymentMethod: paymentMethod
-        }
+        telefone: currentUser?.phoneNumber || '',
+        stripeCustomerId: null, // Será atualizado se disponível
+        stripeSubscriptionId: null, // Será atualizado se for assinatura
+        previousPlan: planoAnterior // Registrar o plano anterior
       };
       
-      // Em modo de desenvolvimento, simular atualização no localStorage
-      if (isDev) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Criar plano mockado para o usuário no localStorage
-        const mockUserData = {
-          temPlano: true,
-          plano: {
-            nome: selectedPlan.nome,
-            relatorios_restantes: selectedPlan.relatorios,
-            renovacao_automatica: paymentMethod === 'credit',
-            data_inicio: new Date().toISOString(),
-            data_fim: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        };
-        
-        // Salvar no localStorage
-        localStorage.setItem('mock_user_data_' + currentUser.uid, JSON.stringify(mockUserData));
-        
-        // Se for pagamento com cartão, adicionar cartão nas formas de pagamento
-        if (paymentMethod === 'credit') {
-          const userCardsKey = 'mock_user_cards_' + currentUser.uid;
-          const savedCardsJson = localStorage.getItem(userCardsKey);
-          const savedCards = savedCardsJson ? JSON.parse(savedCardsJson) : [];
-          
-          // Adicionar novo cartão de crédito simulado
-          const newCard = {
-            id: `pm_mock_${Date.now()}`,
-            brand: 'visa',
-            last4: '4242',
-            exp_month: '12',
-            exp_year: '2025',
-            name: 'Cartão de Pagamento',
-            isDefault: true
-          };
-          
-          // Se o novo cartão é padrão, remover padrão dos outros
-          if (newCard.isDefault) {
-            savedCards.forEach(card => card.isDefault = false);
-          }
-          
-          // Adicionar o novo cartão
-          savedCards.push(newCard);
-          
-          // Salvar no localStorage
-          localStorage.setItem(userCardsKey, JSON.stringify(savedCards));
+      // Verificar se o usuário possui um ID de cliente no Stripe
+      let stripeCustomerId = null;
+      try {
+        const userDoc = await getDoc(doc(db, "usuarios", currentUser.uid));
+        if (userDoc.exists() && userDoc.data().stripeCustomerId) {
+          stripeCustomerId = userDoc.data().stripeCustomerId;
+          subscriptionData.stripeCustomerId = stripeCustomerId;
         }
-        
-        // Adicionar histórico de pagamento
-        const userPaymentsKey = 'mock_user_payments_' + currentUser.uid;
-        const savedPaymentsJson = localStorage.getItem(userPaymentsKey);
-        const savedPayments = savedPaymentsJson ? JSON.parse(savedPaymentsJson) : [];
-        
-        // Criar novo pagamento
-        const newPayment = {
-          id: 'payment_mock_' + Date.now(),
-          amount: selectedPlan.preco * 100,
-          currency: 'brl',
-          status: 'succeeded',
-          created: Date.now() / 1000,
-          payment_method_details: { type: paymentMethod },
-          description: `${selectedPlan.nome} - ${paymentMethod === 'credit' ? 'Assinatura Mensal' : 'Pagamento único'}`
-        };
-        
-        // Adicionar ao histórico
-        savedPayments.push(newPayment);
-        
-        // Salvar no localStorage
-        localStorage.setItem(userPaymentsKey, JSON.stringify(savedPayments));
-        
-      } else {
-        await updateUserSubscription(currentUser.uid, subscriptionData);
+      } catch (error) {
+        console.error('[DEBUG PAYMENT] Erro ao buscar dados do usuário:', error);
+        // Continuar mesmo com erro - não é crítico
       }
       
-      // Atualizar UI
-      setPaymentStatus('success');
+      // Se for uma assinatura e o paymentData contiver um subscription_id
+      if (paymentMethod === 'credit' && paymentData.subscription_id) {
+        subscriptionData.stripeSubscriptionId = paymentData.subscription_id;
+      }
       
-      // Se o pagamento foi feito com cartão, exibir o modal
-      if (paymentMethod === 'credit') {
-        setShowCardAddedModal(true);
-      } else {
-        // Se não foi com cartão, redirecionar normalmente após um pequeno delay
+      // Preparar dados do pagamento para registro
+      const pagamentoDados = {
+        planName: selectedPlan.nome,
+        amount: paymentData.amount || selectedPlan.preco * 100, // Em centavos
+        paymentMethod: paymentData.paymentMethod || paymentMethod,
+        status: paymentData.status || 'succeeded',
+        stripePaymentId: paymentId,
+        tipo: paymentData.tipo || (paymentMethod === 'credit' ? 'assinatura' : 
+               paymentMethod === 'pix' ? 'pagamento_pix' : 'pagamento_unico'),
+        creditosAdicionados: selectedPlan.relatorios,
+        creditosAnteriores: creditosExistentes,
+        creditosTotais: subscriptionData.reportsLeft
+      };
+      
+      console.log('[DEBUG PAYMENT] Registrando pagamento no Firebase:', pagamentoDados);
+      console.log('[DEBUG PAYMENT] Dados de assinatura:', subscriptionData);
+      
+      try {
+        // Registrar o pagamento no Firebase
+        const registroResult = await registrarPagamento(
+          currentUser.uid,
+          pagamentoDados,
+          subscriptionData
+        );
+        
+        if (!registroResult.success) {
+          console.error('[DEBUG PAYMENT] Falha ao registrar pagamento:', registroResult.error);
+          throw new Error(registroResult.error || 'Erro ao registrar pagamento');
+        }
+        
+        console.log('[DEBUG PAYMENT] Pagamento registrado com sucesso:', registroResult);
+        
+        // Adicionar este pagamento à lista de processados
+        processedPayments.push(paymentId);
+        localStorage.setItem(processedPaymentsKey, JSON.stringify(processedPayments));
+        
+        // Atualizar UI
+        setPaymentStatus('success');
+        
+        // Se o pagamento foi feito com cartão, exibir o modal
+        if (paymentMethod === 'credit') {
+          setShowCardAddedModal(true);
+        } else {
+          // Se não foi com cartão, redirecionar normalmente após um pequeno delay
+          setTimeout(() => {
+            navigate('/wallet', { 
+              state: { 
+                paymentSuccess: true, 
+                plan: selectedPlan,
+                creditosAnteriores: creditosExistentes,
+                creditosTotais: subscriptionData.reportsLeft
+              } 
+            });
+          }, 2000);
+        }
+      } catch (registroError) {
+        console.error('[DEBUG PAYMENT] Erro ao registrar pagamento:', registroError);
+        
+        // Exibir alerta sobre o erro
+        alert(`Erro ao registrar pagamento: ${registroError.message}. Por favor, contate o suporte com o ID do pagamento: ${paymentId}`);
+        
+        // Ainda assim, atualizar a UI para mostrar sucesso já que o pagamento foi feito
+        setPaymentStatus('success');
+        
+        // Redirecionar após um delay maior
         setTimeout(() => {
           navigate('/wallet', { 
-            state: { paymentSuccess: true, plan: selectedPlan } 
+            state: { 
+              paymentSuccess: true, 
+              plan: selectedPlan, 
+              registroComErro: true,
+              creditosAnteriores: creditosExistentes,
+              creditosTotais: subscriptionData.reportsLeft
+            } 
           });
-        }, 2000);
+        }, 3000);
       }
       
     } catch (error) {
-      console.error('Erro ao atualizar assinatura:', error);
+      console.error('[DEBUG PAYMENT] Erro ao atualizar assinatura:', error);
       setPaymentStatus('error');
-      setPaymentError('O pagamento foi processado, mas houve um erro ao atualizar sua assinatura. Por favor, contate o suporte.');
+      setPaymentError(`O pagamento foi processado, mas houve um erro ao atualizar sua assinatura: ${error.message}. Por favor, contate o suporte.`);
     }
   };
 
@@ -338,24 +408,45 @@ function Payment() {
               <span>R$ {selectedPlan.preco},00</span>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Componente dinâmico baseado no método de pagamento */}
-          {paymentMethod === 'credit' ? (
+      {/* Formulário de pagamento baseado no método selecionado */}
+      {paymentStatus === 'pending' && selectedPlan && (
+        <div className="payment-form-container">
+          {paymentMethod === 'credit' && (
+            <Elements stripe={stripePromise}>
+              <CheckoutForm 
+                selectedPlan={selectedPlan}
+                paymentType="subscription"
+                onSuccess={handlePaymentSuccess}
+                onError={(error) => setPaymentError(error)}
+              />
+            </Elements>
+          )}
+          
+          {paymentMethod === 'debit' && (
             <Elements stripe={stripePromise}>
               <CheckoutForm
                 selectedPlan={selectedPlan}
-                onPaymentSuccess={handlePaymentSuccess}
-                onPaymentError={handlePaymentError}
+                paymentType="payment"
+                onSuccess={handlePaymentSuccess}
+                onError={(error) => setPaymentError(error)}
               />
             </Elements>
-          ) : (
+          )}
+          
+          {paymentMethod === 'pix' && (
             <PixCheckout
               selectedPlan={selectedPlan}
-              onPaymentSuccess={handlePaymentSuccess}
-              onPaymentError={handlePaymentError}
+              onSuccess={handlePaymentSuccess}
+              onError={(error) => setPaymentError(error)}
             />
           )}
+        </div>
+          )}
 
+      {selectedPlan && paymentStatus === 'pending' && (
           <div className="checkout-actions">
             <button 
               className="back-button checkout" 
@@ -364,7 +455,6 @@ function Payment() {
             >
               Voltar
             </button>
-          </div>
         </div>
       )}
 

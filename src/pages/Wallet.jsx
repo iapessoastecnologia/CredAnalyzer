@@ -5,6 +5,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import '../styles/Wallet.css';
 import { listarCartoes, definirCartaoPadrao, removerCartao, adicionarCartao, obterHistoricoPagamentos, cancelarAssinatura, getPlanoUsuario } from '../services/paymentService';
+import { DEV_MODE } from '../services/paymentService';
 
 function Wallet() {
   const { currentUser } = useAuth();
@@ -25,12 +26,26 @@ function Wallet() {
   const [userSubscription, setUserSubscription] = useState(null);
   const [saveMessage, setSaveMessage] = useState('');
   const [customerStripeId, setCustomerStripeId] = useState(null);
+  const [showRenewModal, setShowRenewModal] = useState(false);
+  const [lastPaymentMethod, setLastPaymentMethod] = useState(null);
 
   // Exibir mensagem de sucesso se vier da página de pagamento
   useEffect(() => {
     if (location.state?.paymentSuccess) {
-      setSaveMessage('Pagamento realizado com sucesso!');
-      setTimeout(() => setSaveMessage(''), 3000);
+      // Verificar se há informações sobre créditos anteriores
+      if (location.state?.creditosAnteriores > 0) {
+        setSaveMessage(`Plano atualizado com sucesso! ${location.state.creditosAnteriores} créditos anteriores + ${location.state.creditosTotais - location.state.creditosAnteriores} novos créditos = ${location.state.creditosTotais} créditos totais.`);
+      } else {
+        setSaveMessage('Pagamento realizado com sucesso!');
+      }
+      
+      // Se houve erro no registro, exibir alerta
+      if (location.state?.registroComErro) {
+        console.log('[DEBUG WALLET] Pagamento foi processado, mas houve erro no registro');
+        setSaveMessage('Pagamento realizado, mas houve um erro no registro. Por favor, contate o suporte caso não veja suas informações atualizadas.');
+      }
+      
+      setTimeout(() => setSaveMessage(''), 5000);
       
       // Verificar se um cartão foi adicionado
       if (location.state?.cardAdded) {
@@ -102,20 +117,63 @@ function Wallet() {
           const historyResponse = await obterHistoricoPagamentos(currentUser.uid);
           
           if (historyResponse.success) {
-            const paymentsData = historyResponse.payments.map(payment => ({
-              id: payment.id,
-              amount: payment.amount,
-              currency: payment.currency,
-              status: payment.status,
-              date: new Date(payment.created * 1000),
-              paymentMethod: payment.payment_method_details?.type || 'unknown',
-              description: payment.description,
-              planName: payment.description?.includes('Plano') ? 
-                payment.description.split(' - ')[0] : 'Assinatura'
-            }));
+            // Mapear os dados de pagamento
+            let paymentsData = historyResponse.payments.map(payment => {
+              // Determinar a data do pagamento
+              let paymentDate;
+              if (payment.created instanceof Date) {
+                paymentDate = payment.created;
+              } else if (typeof payment.created === 'number') {
+                // Timestamp do Stripe (segundos desde epoch)
+                paymentDate = new Date(payment.created * 1000);
+              } else if (typeof payment.created === 'string') {
+                // String ISO ou outra representação de data
+                paymentDate = new Date(payment.created);
+              } else {
+                // Fallback para data atual
+                paymentDate = new Date();
+              }
+              
+              const paymentMethod = payment.payment_method_details?.type || payment.paymentMethod || 'unknown';
+              
+              // Armazenar o método de pagamento mais recente
+              if (!lastPaymentMethod && payment) {
+                setLastPaymentMethod(paymentMethod);
+              }
+              
+              return {
+                id: payment.id || payment.payment_id,
+                amount: payment.amount,
+                currency: payment.currency || 'brl',
+                status: payment.status || 'succeeded',
+                date: paymentDate,
+                paymentMethod: paymentMethod,
+                description: payment.description || `${payment.planName || 'Plano'} - Pagamento`,
+                planName: payment.planName || (payment.description?.includes('Plano') ? 
+                  payment.description.split(' - ')[0] : 'Assinatura')
+              };
+            });
             
+            // Remover duplicatas baseadas no ID do pagamento
+            const uniquePaymentIds = new Set();
+            paymentsData = paymentsData.filter(payment => {
+              if (uniquePaymentIds.has(payment.id)) {
+                return false; // Já existe, filtrar
+              }
+              uniquePaymentIds.add(payment.id);
+              return true; // Manter este pagamento
+            });
+            
+            // Ordenar por data (mais recente primeiro)
             paymentsData.sort((a, b) => b.date - a.date);
             setPaymentHistory(paymentsData);
+            
+            // Definir o método de pagamento mais recente
+            if (paymentsData.length > 0) {
+              setLastPaymentMethod(paymentsData[0].paymentMethod);
+            }
+          } else if (historyResponse.error) {
+            console.error("Erro ao buscar histórico de pagamentos:", historyResponse.error);
           }
         } catch (err) {
           console.error("Erro ao buscar histórico de pagamentos:", err);
@@ -264,6 +322,15 @@ function Wallet() {
     if (!userSubscription || !currentUser) return;
     
     try {
+      // Verificar se o último pagamento foi via PIX e está tentando ativar renovação automática
+      if (!userSubscription.autoRenew && lastPaymentMethod === 'pix') {
+        // Verificar se o usuário tem cartões cadastrados
+        if (cards.length === 0) {
+          setShowRenewModal(true);
+          return;
+        }
+      }
+      
       setLoading(true);
       
       // Obter o estado atual
@@ -284,11 +351,6 @@ function Wallet() {
         
         // Em produção seria algo como:
         // response = await reativarAssinatura(currentUser.uid);
-        
-        if (DEV_MODE) {
-          // Atualizar o mock data
-          MOCK_DATA.planoUsuario.plano.renovacao_automatica = true;
-        }
       }
       
       if (response.success) {
@@ -339,14 +401,35 @@ function Wallet() {
   };
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value / 100); // Convertendo de centavos para reais
+    if (value === undefined || value === null) return 'R$ 0,00';
+    
+    try {
+      // Converter para número se for string
+      const numValue = typeof value === 'string' ? parseFloat(value) : value;
+      
+      // Se o valor parece estar em centavos (maior que 1000), converter para reais
+      const finalValue = numValue > 1000 ? numValue / 100 : numValue;
+      
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(finalValue);
+    } catch (error) {
+      console.error('Erro ao formatar valor:', error);
+      return `R$ ${value}`;
+    }
   };
 
   const formatDate = (date) => {
-    return new Intl.DateTimeFormat('pt-BR').format(date);
+    if (!date) return 'N/A';
+    
+    try {
+      const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
+      return new Date(date).toLocaleDateString('pt-BR', options);
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return 'Data inválida';
+    }
   };
 
   return (
@@ -530,8 +613,8 @@ function Wallet() {
                     </button>
                   </div>
                 ) : (
-                  <div className="payments-table-container">
-                    <table className="payments-table">
+                  <div className="payment-table-container">
+                    <table className="payment-table">
                       <thead>
                         <tr>
                           <th>Data</th>
@@ -547,11 +630,15 @@ function Wallet() {
                             <td>{formatDate(payment.date)}</td>
                             <td>{payment.planName}</td>
                             <td>{formatCurrency(payment.amount)}</td>
-                            <td>{getPaymentMethodDisplay(payment.paymentMethod)}</td>
                             <td>
-                              <span className={`status-badge ${getStatusClass(payment.status)}`}>
+                              <div className="payment-method">
+                                {getPaymentMethodDisplay(payment.paymentMethod)}
+                              </div>
+                            </td>
+                            <td>
+                              <div className={`payment-status ${getStatusClass(payment.status)}`}>
                                 {getStatusDisplay(payment.status)}
-                              </span>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -621,6 +708,9 @@ function Wallet() {
                         >
                           Alterar Plano
                         </button>
+                        <p className="credits-note">
+                          <small>* Ao alterar seu plano, seus créditos restantes serão somados aos novos créditos.</small>
+                        </p>
                       </div>
                     </div>
                     
@@ -644,6 +734,31 @@ function Wallet() {
           </>
         )}
       </div>
+
+      {/* Modal para adicionar cartão para renovação automática */}
+      {showRenewModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Cartão Necessário</h3>
+            <p>Para ativar a renovação automática, você precisa adicionar um cartão de crédito, pois seu último pagamento foi feito via PIX.</p>
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setShowRenewModal(false)}>
+                Cancelar
+              </button>
+              <button 
+                className="primary-button"
+                onClick={() => {
+                  setShowRenewModal(false);
+                  setActiveTab('cards');
+                  setShowAddCardForm(true);
+                }}
+              >
+                Adicionar Cartão
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -661,27 +776,51 @@ function getBrandDisplay(brand) {
 
 function getPaymentMethodDisplay(method) {
   switch (method?.toLowerCase()) {
-    case 'card': return 'Cartão de Crédito';
-    case 'pix': return 'PIX';
-    default: return method || 'Desconhecido';
+    case 'card':
+    case 'credit':
+      return 'Cartão de Crédito';
+    case 'pix':
+      return 'PIX';
+    case 'boleto':
+      return 'Boleto';
+    default:
+      return method || 'Desconhecido';
   }
 }
 
 function getStatusClass(status) {
   switch (status?.toLowerCase()) {
-    case 'succeeded': return 'completed';
-    case 'pending': return 'pending';
-    case 'failed': return 'failed';
-    default: return '';
+    case 'succeeded':
+    case 'completed':
+    case 'paid':
+      return 'status-success';
+    case 'processing':
+    case 'awaiting_payment':
+      return 'status-pending';
+    case 'failed':
+    case 'canceled':
+      return 'status-failed';
+    default:
+      return 'status-unknown';
   }
 }
 
 function getStatusDisplay(status) {
   switch (status?.toLowerCase()) {
-    case 'succeeded': return 'Concluído';
-    case 'pending': return 'Pendente';
-    case 'failed': return 'Falhou';
-    default: return status || 'Desconhecido';
+    case 'succeeded':
+    case 'completed':
+    case 'paid':
+      return 'Concluído';
+    case 'processing':
+      return 'Processando';
+    case 'awaiting_payment':
+      return 'Aguardando Pagamento';
+    case 'failed':
+      return 'Falhou';
+    case 'canceled':
+      return 'Cancelado';
+    default:
+      return status || 'Desconhecido';
   }
 }
 

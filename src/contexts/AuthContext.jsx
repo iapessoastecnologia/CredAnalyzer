@@ -9,15 +9,19 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import { criarCliente, getPlanoUsuario, consumirRelatorio } from '../services/paymentService';
+import { criarCliente, getPlanoUsuario, consumirRelatorio, decrementReportsLeft as decrementReportsLeftService } from '../services/paymentService';
 
 // Flag para modo de desenvolvimento
-const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || true;
+const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
 
 const AuthContext = createContext();
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    console.error('[DEBUG AUTH] useAuth() foi chamado fora do AuthProvider! O contexto é undefined.');
+  }
+  return context;
 }
 
 export function AuthProvider({ children }) {
@@ -133,6 +137,43 @@ export function AuthProvider({ children }) {
   const updateUserSubscription = async (userId, subscriptionData) => {
     try {
       const userDocRef = doc(db, 'usuarios', userId);
+      
+      // Verificar se o usuário já possui créditos
+      let creditosExistentes = 0;
+      let planoAnterior = null;
+      
+      try {
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // Verificar se o usuário já tem créditos
+          if (userData.creditosRestantes && userData.creditosRestantes > 0) {
+            creditosExistentes = userData.creditosRestantes;
+            console.log('[DEBUG AUTH] Usuário possui créditos existentes:', creditosExistentes);
+          }
+          
+          // Verificar se já tem plano para registrar o plano anterior
+          if (userData.subscription && userData.subscription.planName) {
+            planoAnterior = userData.subscription.planName;
+            console.log('[DEBUG AUTH] Plano anterior do usuário:', planoAnterior);
+          }
+        }
+      } catch (error) {
+        console.error("[DEBUG AUTH] Erro ao verificar créditos existentes:", error);
+        // Continuar mesmo com erro - não é crítico
+      }
+      
+      // Atualizar a quantidade de relatórios disponíveis somando os existentes
+      if (!subscriptionData.preserveCredits) { // Se não for especificado para preservar os créditos existentes
+        subscriptionData.reportsLeft = (subscriptionData.reportsLeft || 0) + creditosExistentes;
+      }
+      
+      // Registrar o plano anterior
+      if (planoAnterior && !subscriptionData.previousPlan) {
+        subscriptionData.previousPlan = planoAnterior;
+      }
+      
       await updateDoc(userDocRef, { 
         subscription: subscriptionData,
         creditosRestantes: subscriptionData.reportsLeft,
@@ -159,54 +200,36 @@ export function AuthProvider({ children }) {
   // Decrementar relatórios restantes
   const decrementReportsLeft = async (userId) => {
     try {
-      // Obter documento atual do usuário para verificar créditos
-      const userDocRef = doc(db, 'usuarios', userId);
-      const userDoc = await getDoc(userDocRef);
-      
-      if (!userDoc.exists()) {
-        throw new Error("Usuário não encontrado");
-      }
-      
-      const userData = userDoc.data();
-      
-      // Verificar se o usuário tem créditos disponíveis
-      if (!userData.creditosRestantes || userData.creditosRestantes <= 0) {
-        return { 
-          success: false,
-          error: "Sem créditos disponíveis",
-          needsUpgrade: true
-        };
-      }
-      
-      // Usar a API para consumir um relatório
-      const response = await consumirRelatorio(userId);
+      // Usar a função do serviço de pagamento
+      const response = await decrementReportsLeftService(userId);
       
       if (response.success) {
-        // Atualizar o documento do usuário
-        const novosCreditos = Math.max(0, userData.creditosRestantes - 1);
-        
-        await updateDoc(userDocRef, {
-          creditosRestantes: novosCreditos
-        });
-        
-        // Atualizar o estado local
+        // Atualizar o estado local se a resposta for bem-sucedida
         if (userSubscription) {
           setUserSubscription({
             ...userSubscription,
-            reportsLeft: novosCreditos
+            reportsLeft: response.relatorios_restantes
           });
         }
         
         return { 
           success: true,
-          creditosRestantes: novosCreditos
+          reportsLeft: response.relatorios_restantes
+        };
+      } else {
+        console.error("Erro ao decrementar relatórios:", response.error);
+        return { 
+          success: false,
+          error: response.error || "Erro ao decrementar relatórios",
+          needsUpgrade: response.needsUpgrade
         };
       }
-      
-      return { success: false };
     } catch (error) {
-      console.error("Erro ao decrementar relatórios restantes:", error);
-      throw error;
+      console.error("Erro ao decrementar relatórios:", error);
+      return { 
+        success: false,
+        error: error.message
+      };
     }
   };
   
@@ -297,7 +320,9 @@ export function AuthProvider({ children }) {
 
   // Observer para mudanças no estado de autenticação
   useEffect(() => {
+    console.log('[DEBUG AUTH] Inicializando observer de autenticação');
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('[DEBUG AUTH] Estado de autenticação alterado:', user ? `Usuário autenticado: ${user.uid}` : 'Usuário não autenticado');
       setCurrentUser(user);
       
       if (user) {
@@ -325,6 +350,9 @@ export function AuthProvider({ children }) {
     decrementReportsLeft,
     loadUserSubscription
   };
+
+  // Adicionar log para depuração
+  console.log('[DEBUG AUTH] Renderizando AuthProvider, loading:', loading, 'currentUser:', currentUser ? 'autenticado' : 'não autenticado');
 
   return (
     <AuthContext.Provider value={value}>

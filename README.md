@@ -58,3 +58,16 @@ Após o planejamento, o sistema entra na etapa de análise, onde são avaliados:
 4. Sistema processa e unifica as informações.
 
 5. Relatório é gerado e disponibilizado em PDF.
+
+## Configuração do Ambiente
+
+Para configurar o ambiente de desenvolvimento ou produção, consulte o arquivo [README-ENV.md](README-ENV.md) que contém instruções detalhadas sobre:
+
+- Como configurar as variáveis de ambiente
+- Como alternar entre modo de desenvolvimento e produção
+- Configurações específicas para processamento de pagamentos
+
+### Variáveis de Ambiente Principais
+
+- `VITE_DEV_MODE`: Define se a aplicação está em modo de desenvolvimento (`true`) ou produção (`false`)
+- `VITE_API_URL`: URL base da API de backend

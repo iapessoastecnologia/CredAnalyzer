@@ -1,151 +1,183 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useAuth } from '../contexts/AuthContext';
-import { criarCheckoutAssinatura } from '../services/paymentService';
+import { criarCheckoutPagamento, criarCheckoutAssinatura } from '../services/paymentService';
+import '../styles/CheckoutForm.css';
 
-const CARD_ELEMENT_OPTIONS = {
-  style: {
-    base: {
-      color: '#32325d',
-      fontFamily: '"Poppins", Arial, sans-serif',
-      fontSmoothing: 'antialiased',
-      fontSize: '16px',
-      '::placeholder': {
-        color: '#aab7c4',
-      },
-    },
-    invalid: {
-      color: '#fa755a',
-      iconColor: '#fa755a',
-    },
-  },
-  hidePostalCode: true,
-};
-
-function CheckoutForm({ selectedPlan, onPaymentSuccess, onPaymentError }) {
+function CheckoutForm({ selectedPlan, paymentType = 'payment', onSuccess, onError }) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [message, setMessage] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [cardComplete, setCardComplete] = useState(false);
+  
   const stripe = useStripe();
   const elements = useElements();
-  const { currentUser } = useAuth();
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState(null);
-  const [succeeded, setSucceeded] = useState(false);
+  const auth = useAuth();
+  const currentUser = auth?.currentUser;
   
-  // Verificar se estamos em modo de desenvolvimento
-  const isDev = import.meta.env.VITE_DEV_MODE === 'true' || true;
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!stripe || !elements) {
-      // O Stripe.js ainda não foi carregado
+  // Função que será chamada quando o componente for montado
+  useEffect(() => {
+    if (!selectedPlan || !currentUser) {
+      console.log("[DEBUG] Aguardando plano selecionado ou usuário autenticado");
       return;
     }
-
-    setProcessing(true);
-    setError(null);
+    
+    const createPaymentIntent = async () => {
+      try {
+        setIsProcessing(true);
+        setMessage('');
+        
+        // Preparar os dados para o backend
+        const paymentData = {
+          user_id: currentUser.uid,
+          plano_id: selectedPlan.id
+        };
+        
+        // Criar checkout baseado no tipo (pagamento único ou assinatura)
+        const checkoutFunction = paymentType === 'subscription' 
+          ? criarCheckoutAssinatura
+          : criarCheckoutPagamento;
+        
+        const response = await checkoutFunction(paymentData);
+        
+        if (response.success && response.clientSecret) {
+          setClientSecret(response.clientSecret);
+        } else {
+          throw new Error(response.message || 'Erro ao criar checkout');
+        }
+      } catch (error) {
+        console.error('Erro ao iniciar checkout:', error);
+        setMessage(`Erro ao preparar pagamento: ${error.message}`);
+        if (onError) onError(error.message);
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+    
+    createPaymentIntent();
+  }, [selectedPlan, paymentType, currentUser, onError]);
+  
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!stripe || !elements || !currentUser) {
+      // O Stripe.js ainda não foi carregado ou usuário não autenticado
+      return;
+    }
+    
+    setIsProcessing(true);
+    setMessage("");
 
     try {
-      // Em modo de desenvolvimento, podemos pular a criação do payment method
-      // e simular diretamente uma resposta de sucesso
-      let paymentMethodId = 'pm_mock_card';
+      // Confirmar o pagamento com o Stripe usando o Client Secret
+      const cardElement = elements.getElement(CardElement);
       
-      if (!isDev) {
-        // Cria um payment method usando CardElement
-        const { error, paymentMethod } = await stripe.createPaymentMethod({
-          type: 'card',
-          card: elements.getElement(CardElement),
-          billing_details: {
-            email: currentUser.email,
-          },
-        });
-
-        if (error) {
-          setError(`Erro de pagamento: ${error.message}`);
-          setProcessing(false);
-          if (onPaymentError) onPaymentError(error);
-          return;
+      console.log(`[DEBUG] Confirmando ${paymentType} com Stripe...`);
+      
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement
         }
+      });
+
+      if (error) {
+        setMessage(error.message || "Ocorreu um erro durante o processamento do pagamento.");
+        setIsProcessing(false);
+        if (onError) onError(error.message);
+      } else if (paymentIntent) {
+        console.log('[DEBUG] Pagamento confirmado pelo Stripe:', paymentIntent);
         
-        paymentMethodId = paymentMethod.id;
-      }
-
-      // Prepara os dados para a assinatura
-      const paymentData = {
-        user_id: currentUser.uid,
-        plano_id: selectedPlan.id,
-        payment_method_id: paymentMethodId
-      };
-
-      // Envia a solicitação de checkout para o backend
-      const responseData = await criarCheckoutAssinatura(paymentData);
-
-      if (responseData.error) {
-        setError(`Erro: ${responseData.error}`);
-        setProcessing(false);
-        if (onPaymentError) onPaymentError(responseData.error);
-        return;
-      }
-
-      // Se houver uma intenção de pagamento que requer autenticação
-      if (!isDev && responseData.requiresAction) {
-        const { error: confirmationError } = await stripe.confirmCardPayment(
-          responseData.clientSecret
-        );
-
-        if (confirmationError) {
-          setError(`Erro na confirmação: ${confirmationError.message}`);
-          setProcessing(false);
-          if (onPaymentError) onPaymentError(confirmationError);
-          return;
+        // Prepare os dados de pagamento para passar para o callback de sucesso
+        const paymentData = {
+          id: paymentIntent.id,
+          paymentId: paymentIntent.id,
+          status: paymentIntent.status,
+          amount: paymentIntent.amount,
+          paymentMethod: 'credit',
+          stripePaymentId: paymentIntent.id,
+          tipo: paymentType === 'subscription' ? 'assinatura' : 'pagamento_unico',
+          planName: selectedPlan.nome
+        };
+        
+        console.log('[DEBUG] Dados de pagamento formatados para callback:', paymentData);
+        
+        setMessage("Pagamento processado com sucesso!");
+        setIsProcessing(false);
+        
+        // Chamar o callback de sucesso com os dados do pagamento
+        if (onSuccess) {
+          console.log('[DEBUG] Chamando callback de sucesso');
+          onSuccess(paymentData);
         }
       }
-
-      // Pagamento realizado com sucesso
-      setSucceeded(true);
-      setProcessing(false);
-      if (onPaymentSuccess) onPaymentSuccess(responseData);
-      
-    } catch (err) {
-      console.error('Erro na transação:', err);
-      setError(`Erro na transação: ${err.message || 'Erro desconhecido'}`);
-      setProcessing(false);
-      if (onPaymentError) onPaymentError(err);
+    } catch (error) {
+      console.error('[DEBUG] Erro ao processar pagamento:', error);
+      setMessage("Ocorreu um erro durante o processamento do pagamento.");
+      setIsProcessing(false);
+      if (onError) onError(error.message);
     }
   };
-
+  
+  const handleCardChange = (event) => {
+    setCardComplete(event.complete);
+    if (event.error) {
+      setMessage(event.error.message);
+    } else {
+      setMessage('');
+    }
+  };
+  
+  // Se não houver usuário autenticado, mostrar mensagem de carregamento
+  if (!currentUser) {
+    return (
+      <div className="checkout-form-container">
+        <div className="checkout-loading">
+          <p>Carregando informações do usuário...</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <form onSubmit={handleSubmit} className="checkout-form">
-      <div className="form-group">
-        <label htmlFor="card-element">Cartão de Crédito</label>
+    <div className="checkout-form-container">
+      <form onSubmit={handleSubmit} className="checkout-form">
         <div className="card-element-container">
-          <CardElement id="card-element" options={CARD_ELEMENT_OPTIONS} />
+          <CardElement 
+            options={{
+              style: {
+                base: {
+                  fontSize: '16px',
+                  color: '#424770',
+                  '::placeholder': {
+                    color: '#aab7c4',
+                  },
+                },
+                invalid: {
+                  color: '#9e2146',
+                },
+              },
+              hidePostalCode: true
+            }}
+            onChange={handleCardChange}
+          />
         </div>
-        {isDev && (
-          <div className="dev-mode-notice">
-            <small>Modo de desenvolvimento ativo: Pagamentos serão simulados</small>
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <div className="error-message">
-          {error}
+        
+        <button 
+          type="submit" 
+          disabled={isProcessing || !cardComplete || !stripe} 
+          className="checkout-button"
+        >
+          {isProcessing ? 'Processando...' : 'Pagar agora'}
+        </button>
+        
+        {message && <div className="checkout-message">{message}</div>}
+        
+        <div className="security-info">
+          <span className="secure-icon">🔒</span>
+          <span className="secure-text">Pagamento seguro com Stripe</span>
         </div>
-      )}
-
-      <button 
-        type="submit" 
-        className="checkout-button" 
-        disabled={(!isDev && !stripe) || processing || succeeded}
-      >
-        {processing ? 'Processando...' : succeeded ? 'Pagamento Confirmado!' : 'Finalizar Pagamento'}
-      </button>
-
-      <div className="security-info">
-        <span className="secure-icon">🔒</span>
-        <span className="secure-text">Seus dados são transmitidos de forma segura por criptografia SSL</span>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }
 

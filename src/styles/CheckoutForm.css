@@ -194,4 +194,21 @@
   margin: 0.5rem 0;
   font-size: 0.9rem;
   text-align: center;
+}
+
+.checkout-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 150px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.checkout-loading p {
+  font-size: 16px;
+  color: var(--color-primary);
+  text-align: center;
 } 

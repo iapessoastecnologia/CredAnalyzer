@@ -6,7 +6,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.credanalyzer.com.br';
 
 // Flag para modo de desenvolvimento (mock)
-const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || true;
+// Usar a variável de ambiente para definir o modo de desenvolvimento
+export const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
+
+// Import Firebase
+import { db } from '../firebase/config';
+import { collection, addDoc, doc, setDoc, updateDoc, serverTimestamp, getDoc, query, where, limit, getDocs, orderBy } from 'firebase/firestore';
 
 // Dados de mock para desenvolvimento
 const MOCK_DATA = {
@@ -49,6 +54,273 @@ const MOCK_DATA = {
     success: true,
     tem_plano: false, // Usuário não tem plano por padrão
     plano: null
+  }
+};
+
+/**
+ * Registra informações de pagamento no Firebase e no backend
+ * @param {string} userId - ID do usuário
+ * @param {Object} paymentData - Dados do pagamento
+ * @param {string} paymentData.planName - Nome do plano adquirido
+ * @param {number} paymentData.amount - Valor do pagamento
+ * @param {string} paymentData.paymentMethod - Método de pagamento (credit, pix)
+ * @param {string} paymentData.status - Status do pagamento
+ * @param {string} paymentData.stripePaymentId - ID do pagamento no Stripe
+ * @param {string} paymentData.tipo - Tipo de pagamento (assinatura, pagamento_unico, renovacao_assinatura, pagamento_pix)
+ * @param {Object} subscriptionData - Dados de assinatura
+ * @returns {Promise<Object>} - Resultado da operação
+ */
+export const registrarPagamento = async (userId, paymentData, subscriptionData) => {
+  try {
+    console.log('[DEBUG REGISTRO] Iniciando registro de pagamento:', {userId, paymentData, subscriptionData});
+    
+    // Verificar dados obrigatórios
+    if (!userId) {
+      throw new Error('ID do usuário é obrigatório');
+    }
+    
+    if (!paymentData || !paymentData.planName || !paymentData.amount) {
+      throw new Error('Dados de pagamento incompletos');
+    }
+    
+    if (!subscriptionData || !subscriptionData.planId || !subscriptionData.reportsLeft) {
+      throw new Error('Dados de assinatura incompletos');
+    }
+    
+    // Preparando os dados para enviar ao backend
+    const backendPaymentData = {
+      user_id: userId,
+      payment_id: paymentData.stripePaymentId || `payment_${Date.now()}`,
+      payment_method: paymentData.paymentMethod,
+      amount: paymentData.amount / 100, // Converter de centavos para reais
+      plan_id: subscriptionData.planId,
+      plan_name: paymentData.planName,
+      telefone: subscriptionData.telefone || '',
+      auto_renew: subscriptionData.autoRenew || false,
+      reports_left: subscriptionData.reportsLeft,
+      start_date: subscriptionData.startDate instanceof Date ? 
+                 subscriptionData.startDate.toISOString() : 
+                 new Date(subscriptionData.startDate).toISOString(),
+      end_date: subscriptionData.endDate instanceof Date ? 
+               subscriptionData.endDate.toISOString() : 
+               new Date(subscriptionData.endDate).toISOString()
+    };
+    
+    console.log('[DEBUG REGISTRO] Dados formatados para o backend:', backendPaymentData);
+    console.log('[DEBUG REGISTRO] Modo de desenvolvimento?', DEV_MODE ? 'SIM' : 'NÃO');
+
+    // Modo de desenvolvimento (SEMPRE TRUE NESTA VERSÃO)
+    if (DEV_MODE) {
+      console.log('[DEBUG REGISTRO] Registro de pagamento (modo DEV) - salvando no Firebase diretamente');
+      
+      // Verificar se este pagamento já foi registrado anteriormente
+      try {
+        console.log('[DEBUG REGISTRO] Verificando se o pagamento já existe...');
+        const paymentId = backendPaymentData.payment_id;
+        const existingPaymentDoc = await getDoc(doc(db, "pagamentos", paymentId));
+        
+        if (existingPaymentDoc.exists()) {
+          console.log('[DEBUG REGISTRO] Pagamento já registrado anteriormente com ID:', paymentId);
+          return { 
+            success: true, 
+            paymentId: paymentId,
+            message: 'Pagamento já registrado anteriormente',
+            alreadyExists: true
+          };
+        }
+        
+        // Verificar também na coleção de histórico
+        const historyRef = collection(db, "pagamentos_historico");
+        const historyQuery = query(
+          historyRef, 
+          where("stripePaymentId", "==", paymentId),
+          limit(1)
+        );
+        
+        const historySnapshot = await getDocs(historyQuery);
+        if (!historySnapshot.empty) {
+          console.log('[DEBUG REGISTRO] Pagamento já registrado no histórico com ID:', paymentId);
+          return { 
+            success: true, 
+            paymentId: paymentId,
+            message: 'Pagamento já registrado no histórico',
+            alreadyExists: true
+          };
+        }
+      } catch (checkError) {
+        console.error('[DEBUG REGISTRO] Erro ao verificar existência do pagamento:', checkError);
+        // Continuar com o processo mesmo se a verificação falhar
+      }
+      
+      // Atualizar o localStorage para manter consistência no modo DEV
+      const mockUserData = {
+        temPlano: true,
+        plano: {
+          nome: subscriptionData.planName,
+          relatorios_restantes: subscriptionData.reportsLeft,
+          renovacao_automatica: subscriptionData.autoRenew,
+          data_inicio: subscriptionData.startDate instanceof Date ? 
+                       subscriptionData.startDate.toISOString() : 
+                       new Date(subscriptionData.startDate).toISOString(),
+          data_fim: subscriptionData.endDate instanceof Date ? 
+                     subscriptionData.endDate.toISOString() : 
+                     new Date(subscriptionData.endDate).toISOString()
+        }
+      };
+      
+      localStorage.setItem('mock_user_data_' + userId, JSON.stringify(mockUserData));
+      console.log('[DEBUG REGISTRO] Dados do usuário salvos no localStorage');
+      
+      // Em modo de desenvolvimento, também salvar no Firebase diretamente
+      try {
+        console.log('[DEBUG REGISTRO] Tentando salvar no Firebase...');
+        
+        // Gerar um ID único para o pagamento se não for fornecido
+        // Isso ajuda a evitar duplicações
+        if (!backendPaymentData.payment_id.includes('_')) {
+          backendPaymentData.payment_id = `payment_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        }
+        
+        // 1. Registrar no histórico de pagamentos (para compatibilidade)
+        const pagamentoHistorico = {
+          usuarioId: userId,
+          planName: paymentData.planName,
+          amount: paymentData.amount,
+          paymentMethod: paymentData.paymentMethod,
+          timestamp: serverTimestamp(),
+          status: paymentData.status,
+          stripePaymentId: backendPaymentData.payment_id,
+          tipo: paymentData.tipo
+        };
+        
+        console.log('[DEBUG REGISTRO] Salvando em pagamentos_historico:', pagamentoHistorico);
+        const historyRef = collection(db, "pagamentos_historico");
+        try {
+          const docRef = await addDoc(historyRef, pagamentoHistorico);
+          console.log('[DEBUG REGISTRO] Pagamento registrado em pagamentos_historico com ID:', docRef.id);
+        } catch (historyError) {
+          console.error('[DEBUG REGISTRO] Erro ao salvar no histórico:', historyError);
+          // Continuar mesmo em caso de erro no histórico
+        }
+        
+        // 2. Registrar pagamento na nova estrutura
+        const pagamentoDoc = {
+          userId: userId,
+          temPlano: true,
+          telefone: subscriptionData?.telefone || '',
+          subscription: {
+            autoRenew: subscriptionData.autoRenew,
+            endDate: subscriptionData.endDate,
+            paymentInfo: {
+              amount: paymentData.amount,
+              lastPaymentDate: new Date().toISOString(),
+              paymentId: backendPaymentData.payment_id,
+              paymentMethod: paymentData.paymentMethod,
+              planId: subscriptionData.planId,
+              planName: paymentData.planName
+            },
+            reportsLeft: subscriptionData.reportsLeft,
+            startDate: subscriptionData.startDate
+          }
+        };
+        
+        console.log('[DEBUG REGISTRO] Salvando em pagamentos:', pagamentoDoc);
+        try {
+          await setDoc(doc(db, "pagamentos", backendPaymentData.payment_id), pagamentoDoc);
+          console.log('[DEBUG REGISTRO] Pagamento registrado em pagamentos com ID:', backendPaymentData.payment_id);
+        } catch (pagamentoError) {
+          console.error('[DEBUG REGISTRO] Erro ao salvar em pagamentos:', pagamentoError);
+          throw pagamentoError; // Este é crítico, então lançamos o erro
+        }
+        
+        // 3. Atualizar informações de assinatura no usuário
+        const userSubscription = {
+          planName: subscriptionData.planName,
+          reportsLeft: subscriptionData.reportsLeft,
+          startDate: subscriptionData.startDate,
+          endDate: subscriptionData.endDate,
+          autoRenew: subscriptionData.autoRenew,
+          stripeCustomerId: subscriptionData.stripeCustomerId || null,
+          stripeSubscriptionId: subscriptionData.stripeSubscriptionId || null
+        };
+        
+        console.log('[DEBUG REGISTRO] Atualizando usuário com ID:', userId);
+        try {
+          await updateDoc(doc(db, "usuarios", userId), {
+            subscription: userSubscription,
+            temPlano: true,
+            creditosRestantes: subscriptionData.reportsLeft // Já contém a soma dos créditos existentes + novos
+          });
+          console.log('[DEBUG REGISTRO] Assinatura do usuário atualizada com sucesso');
+          
+          // Registrar a mudança de plano com a soma de créditos no histórico
+          if (subscriptionData.previousPlan) {
+            try {
+              const mudancaPlanoRef = collection(db, "mudancas_plano");
+              await addDoc(mudancaPlanoRef, {
+                usuarioId: userId,
+                planoAnterior: subscriptionData.previousPlan,
+                planoNovo: subscriptionData.planName,
+                creditosAnteriores: subscriptionData.reportsLeft - subscriptionData.creditosAdicionados || 0,
+                creditosAdicionados: subscriptionData.creditosAdicionados || subscriptionData.reportsLeft,
+                creditosTotais: subscriptionData.reportsLeft,
+                timestamp: serverTimestamp()
+              });
+              console.log('[DEBUG REGISTRO] Histórico de mudança de plano registrado com sucesso');
+            } catch (historyError) {
+              console.error('[DEBUG REGISTRO] Erro ao registrar histórico de mudança de plano:', historyError);
+              // Não crítico, continuar
+            }
+          }
+        } catch (userError) {
+          console.error('[DEBUG REGISTRO] Erro ao atualizar usuário:', userError);
+          // Não lançar erro aqui, pois o pagamento já foi registrado
+        }
+        
+        return { 
+          success: true, 
+          paymentId: backendPaymentData.payment_id,
+          message: 'Pagamento registrado com sucesso no Firebase'
+        };
+      } catch (error) {
+        console.error('[DEBUG REGISTRO] ERRO ao salvar no Firebase (modo DEV):', error);
+        alert(`Erro ao salvar no Firebase: ${error.message}`);
+        throw error;
+      }
+    } 
+    else {
+      // Modo produção - enviar para o backend via API
+      try {
+        console.log(`[DEBUG REGISTRO] Enviando pagamento para ${API_BASE_URL}/pagamentos/`);
+        
+        const response = await fetch(`${API_BASE_URL}/pagamentos/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(backendPaymentData),
+        });
+
+        if (!response.ok) {
+          console.error('[DEBUG REGISTRO] Erro na resposta da API:', response.status, response.statusText);
+          const errorData = await response.json().catch(e => ({ detail: "Erro ao processar resposta" }));
+          throw new Error(errorData.detail || 'Erro ao registrar pagamento');
+        }
+
+        const responseData = await response.json();
+        console.log('[DEBUG REGISTRO] Resposta da API:', responseData);
+        return responseData;
+      } catch (error) {
+        console.error('[DEBUG REGISTRO] Erro ao registrar pagamento via API:', error);
+        throw error;
+      }
+    }
+  } catch (error) {
+    console.error('[DEBUG REGISTRO] Erro geral ao registrar pagamento:', error);
+    return {
+      success: false,
+      error: error.message || 'Erro desconhecido ao registrar pagamento'
+    };
   }
 };
 
@@ -383,26 +655,106 @@ export const definirCartaoPadrao = async (customerId, paymentMethodId) => {
  */
 export const obterHistoricoPagamentos = async (userId) => {
   try {
-    // Modo de desenvolvimento - retorna dados simulados
+    console.log('[DEBUG] Buscando histórico de pagamentos para o usuário:', userId);
+    
+    // Mesmo em modo de desenvolvimento, buscar diretamente do Firebase
     if (DEV_MODE) {
-      // Verificar se o usuário tem um histórico de pagamentos no localStorage
-      const userPaymentsKey = 'mock_user_payments_' + userId;
-      const savedPayments = localStorage.getItem(userPaymentsKey);
-      
-      if (savedPayments) {
+      try {
+        console.log('[DEBUG] Buscando pagamentos do Firebase para o usuário:', userId);
+        
+        // Buscar da coleção pagamentos_historico
+        const historyRef = collection(db, "pagamentos_historico");
+        const historyQuery = query(
+          historyRef,
+          where("usuarioId", "==", userId),
+          orderBy("timestamp", "desc")
+        );
+        
+        const historySnapshot = await getDocs(historyQuery);
+        const payments = [];
+        
+        historySnapshot.forEach((doc) => {
+          const data = doc.data();
+          payments.push({
+            id: doc.id,
+            payment_id: data.stripePaymentId || doc.id,
+            amount: data.amount,
+            currency: 'brl',
+            status: data.status || 'succeeded',
+            created: data.timestamp?.toDate?.() || new Date(),
+            payment_method_details: { type: data.paymentMethod },
+            description: `${data.planName} - ${data.tipo === 'assinatura' ? 'Assinatura Mensal' : 'Pagamento único'}`,
+            planName: data.planName
+          });
+        });
+        
+        // Buscar também da nova coleção pagamentos
+        const paymentsRef = collection(db, "pagamentos");
+        const paymentsQuery = query(
+          paymentsRef,
+          where("userId", "==", userId)
+        );
+        
+        const paymentsSnapshot = await getDocs(paymentsQuery);
+        
+        paymentsSnapshot.forEach((doc) => {
+          const data = doc.data();
+          // Verificar se este pagamento já está na lista (evitar duplicatas)
+          const paymentId = doc.id;
+          if (!payments.some(p => p.payment_id === paymentId)) {
+            payments.push({
+              id: paymentId,
+              payment_id: paymentId,
+              amount: data.subscription?.paymentInfo?.amount || 0,
+              currency: 'brl',
+              status: 'succeeded',
+              created: data.subscription?.paymentInfo?.lastPaymentDate || new Date(),
+              payment_method_details: { 
+                type: data.subscription?.paymentInfo?.paymentMethod || 'unknown' 
+              },
+              description: `${data.subscription?.paymentInfo?.planName || 'Plano'} - ${data.subscription?.autoRenew ? 'Assinatura Mensal' : 'Pagamento único'}`,
+              planName: data.subscription?.paymentInfo?.planName
+            });
+          }
+        });
+        
+        // Remover duplicatas baseadas no ID do pagamento
+        const uniquePayments = [];
+        const uniqueIds = new Set();
+        
+        for (const payment of payments) {
+          const uniqueId = payment.payment_id || payment.id;
+          if (!uniqueIds.has(uniqueId)) {
+            uniqueIds.add(uniqueId);
+            uniquePayments.push(payment);
+          }
+        }
+        
+        console.log('[DEBUG] Encontrados', payments.length, 'pagamentos, após remoção de duplicatas:', uniquePayments.length);
+        
+        // Ordenar por data (mais recente primeiro)
+        uniquePayments.sort((a, b) => {
+          const dateA = a.created instanceof Date ? a.created : new Date(a.created);
+          const dateB = b.created instanceof Date ? b.created : new Date(b.created);
+          return dateB - dateA;
+        });
+        
         return {
           success: true,
-          payments: JSON.parse(savedPayments)
+          payments: uniquePayments
+        };
+      } catch (error) {
+        console.error('[DEBUG] Erro ao buscar pagamentos do Firebase:', error);
+        // Fallback para localStorage apenas se falhar a busca no Firebase
+        return {
+          success: false,
+          error: error.message,
+          payments: []
         };
       }
-      
-      // Por padrão, retornar lista vazia
-      return {
-        success: true,
-        payments: []
-      };
     }
 
+    // Modo produção - chamar o backend
     const response = await fetch(`${API_BASE_URL}/stripe/pagamentos/${userId}`);
 
     if (!response.ok) {
@@ -410,7 +762,30 @@ export const obterHistoricoPagamentos = async (userId) => {
       throw new Error(errorData.detail || 'Erro ao obter histórico de pagamentos');
     }
 
-    return await response.json();
+    // Processar a resposta e remover duplicatas
+    const responseData = await response.json();
+    
+    if (responseData.success && responseData.payments) {
+      // Remover duplicatas baseadas no ID do pagamento
+      const uniquePayments = [];
+      const uniqueIds = new Set();
+      
+      for (const payment of responseData.payments) {
+        if (!uniqueIds.has(payment.id)) {
+          uniqueIds.add(payment.id);
+          uniquePayments.push(payment);
+        }
+      }
+      
+      console.log('[DEBUG] API retornou', responseData.payments.length, 'pagamentos, após remoção de duplicatas:', uniquePayments.length);
+      
+      return {
+        success: true,
+        payments: uniquePayments
+      };
+    }
+    
+    return responseData;
   } catch (error) {
     console.error('Erro ao obter histórico de pagamentos:', error);
     throw error;
@@ -551,5 +926,169 @@ export const criarCliente = async (userData) => {
   } catch (error) {
     console.error('Erro ao criar cliente:', error);
     throw error;
+  }
+};
+
+/**
+ * Cria um pagamento via PIX
+ * @param {Object} pixData - Dados do pagamento PIX
+ * @param {string} pixData.user_id - ID do usuário
+ * @param {string} pixData.plano_id - ID do plano
+ * @param {number} pixData.valor - Valor do pagamento (opcional)
+ * @returns {Promise<Object>} - Dados do pagamento PIX
+ */
+export const criarPagamentoPix = async (pixData) => {
+  try {
+    console.log('[DEBUG PIX-SERVICE] Iniciando criação de pagamento PIX:', pixData);
+    
+    // Buscar dados do plano se não houver valor definido
+    let valor = pixData.valor;
+    if (!valor && pixData.plano_id) {
+      // Em um cenário real, buscaríamos o valor do plano
+      // Aqui estamos usando valores fixos para mock
+      const planoValores = {
+        'basic': 35,
+        'standard': 55,
+        'premium': 75
+      };
+      valor = planoValores[pixData.plano_id] || 0;
+    }
+    
+    // Modo de desenvolvimento - retorna dados simulados
+    if (DEV_MODE) {
+      console.log('[DEBUG PIX-SERVICE] Usando modo de desenvolvimento para criar PIX');
+      
+      // Gerar um ID único para o pagamento PIX
+      const paymentId = `pix_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      
+      // Usar uma URL real de QR code
+      const mockResponse = {
+        ...MOCK_DATA.checkout,
+        success: true,
+        id: paymentId,
+        qrcode_image_url: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg',
+        pix_code: '00020101021226890014br.gov.bcb.pix2567pix-qrcode.exemplo.com/pix/v2/' + paymentId,
+        message: 'Pagamento PIX criado com sucesso (modo de desenvolvimento)'
+      };
+      
+      console.log('[DEBUG PIX-SERVICE] Resposta mockada:', mockResponse);
+      return mockResponse;
+    }
+
+    console.log('[DEBUG PIX-SERVICE] Enviando requisição para API:', `${API_BASE_URL}/pagamento/pix/`);
+    const response = await fetch(`${API_BASE_URL}/pagamento/pix/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(pixData),
+    });
+
+    if (!response.ok) {
+      console.error('[DEBUG PIX-SERVICE] Erro na resposta da API:', response.status, response.statusText);
+      const errorData = await response.json().catch(e => ({ detail: "Erro ao processar resposta" }));
+      throw new Error(errorData.detail || 'Erro ao criar pagamento PIX');
+    }
+
+    const responseData = await response.json();
+    console.log('[DEBUG PIX-SERVICE] Resposta da API PIX:', responseData);
+    return responseData;
+  } catch (error) {
+    console.error('[DEBUG PIX-SERVICE] Erro ao criar pagamento PIX:', error);
+    throw error;
+  }
+};
+
+/**
+ * Decrementa o número de relatórios disponíveis para o usuário
+ * @param {string} userId - ID do usuário
+ * @returns {Promise<Object>} - Resultado da operação
+ */
+export const decrementReportsLeft = async (userId) => {
+  try {
+    console.log('[DEBUG] Decrementando relatórios para o usuário:', userId);
+    
+    // Modo de desenvolvimento - usar localStorage
+    if (DEV_MODE) {
+      // Verificar se o usuário existe no localStorage
+      const userDataJson = localStorage.getItem('mock_user_data_' + userId);
+      
+      if (!userDataJson) {
+        console.error('[DEBUG] Usuário não encontrado no localStorage');
+        return {
+          success: false,
+          error: 'Usuário não encontrado'
+        };
+      }
+      
+      const userData = JSON.parse(userDataJson);
+      
+      // Verificar se tem plano ativo
+      if (!userData.temPlano || !userData.plano) {
+        console.error('[DEBUG] Usuário não possui plano ativo');
+        return {
+          success: false,
+          error: 'Sem plano ativo'
+        };
+      }
+      
+      // Verificar se tem relatórios disponíveis
+      if (userData.plano.relatorios_restantes <= 0) {
+        console.error('[DEBUG] Usuário não possui relatórios disponíveis');
+        return {
+          success: false,
+          error: 'Não há relatórios disponíveis'
+        };
+      }
+      
+      // Decrementar e salvar
+      userData.plano.relatorios_restantes -= 1;
+      localStorage.setItem('mock_user_data_' + userId, JSON.stringify(userData));
+      
+      console.log('[DEBUG] Relatórios restantes:', userData.plano.relatorios_restantes);
+      
+      // Atualizar também no Firebase
+      try {
+        // Buscar referência do documento do usuário
+        const userRef = doc(db, "usuarios", userId);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          if (userData.subscription && userData.subscription.reportsLeft !== undefined) {
+            // Decrementar relatórios
+            await updateDoc(userRef, {
+              "subscription.reportsLeft": userData.subscription.reportsLeft - 1
+            });
+            
+            console.log('[DEBUG] Relatórios decrementados no Firebase');
+          }
+        }
+      } catch (firebaseError) {
+        console.error('[DEBUG] Erro ao atualizar Firebase, mas continuando com localStorage:', firebaseError);
+        // Não falhar se o Firebase falhar, já que temos o localStorage
+      }
+      
+      return {
+        success: true,
+        relatorios_restantes: userData.plano.relatorios_restantes
+      };
+    }
+
+    // Modo de produção - chamar API
+    const response = await fetch(`${API_BASE_URL}/stripe/consumir_relatorio/${userId}`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Erro ao decrementar relatórios');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Erro ao decrementar relatórios:', error);
+    return { success: false, error: error.message };
   }
 }; 
