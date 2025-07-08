@@ -10,7 +10,9 @@ function Analysis() {
     registration: false,
     taxStatus: false,
     taxBilling: false,
-    managementBilling: false
+    managementBilling: false,
+    spcSerasa: false,
+    statement: false
   });
 
   const [files, setFiles] = useState({
@@ -18,7 +20,9 @@ function Analysis() {
     registration: null,
     taxStatus: null,
     taxBilling: null,
-    managementBilling: null
+    managementBilling: null,
+    spcSerasa: null,
+    statement: null
   });
   
   // Carregar estado salvo quando o componente monta
@@ -27,7 +31,14 @@ function Analysis() {
     if (savedSelections) {
       try {
         const parsedSelections = JSON.parse(savedSelections);
-        setSelectedDocuments(parsedSelections);
+        // Garantir que os novos campos estejam incluídos
+        setSelectedDocuments({
+          ...selectedDocuments,
+          ...parsedSelections,
+          // Força a inclusão dos novos campos mesmo se não estiverem no localStorage
+          managementBilling: parsedSelections.managementBilling || false,
+          spcSerasa: parsedSelections.spcSerasa || false
+        });
       } catch (error) {
         console.error('Erro ao carregar seleções salvas:', error);
       }
@@ -74,7 +85,9 @@ function Analysis() {
       registration: 'Registro',
       taxStatus: 'SituacaoFiscal',
       taxBilling: 'FaturamentoFiscal',
-      managementBilling: 'FaturamentoGerencial'
+      managementBilling: 'FaturamentoGerencial',
+      spcSerasa: 'SpcOuSerasa',
+      statement: 'Demonstrativo'
     };
     return types[key] || key;
   };
@@ -147,7 +160,9 @@ const getLabel = (key) => {
     registration: 'Registro',
     taxStatus: 'Situação Fiscal',
     taxBilling: 'Faturamento Fiscal',
-    managementBilling: 'Faturamento Gerencial'
+    managementBilling: 'Faturamento Gerencial',
+    spcSerasa: 'SPC ou Serasa',
+    statement: 'Demonstrativo'
   };
   return labels[key];
 };
