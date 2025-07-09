@@ -151,7 +151,10 @@ function Payment() {
         telefone: currentUser?.phoneNumber || '',
         stripeCustomerId: null, // Será atualizado se disponível
         stripeSubscriptionId: null, // Será atualizado se for assinatura
-        previousPlan: planoAnterior // Registrar o plano anterior
+        previousPlan: planoAnterior, // Registrar o plano anterior
+        creditosAnteriores: creditosExistentes, // Registrar os créditos existentes
+        creditosAdicionados: selectedPlan.relatorios, // Registrar os créditos adicionados
+        singleCreditAddition: true
       };
       
       // Verificar se o usuário possui um ID de cliente no Stripe

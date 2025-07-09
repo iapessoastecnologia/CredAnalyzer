@@ -72,21 +72,21 @@ const MOCK_DATA = {
  */
 export const registrarPagamento = async (userId, paymentData, subscriptionData) => {
   try {
-    console.log('[DEBUG REGISTRO] Iniciando registro de pagamento:', {userId, paymentData, subscriptionData});
-    
+    console.log('[DEBUG REGISTRO] Iniciando registro de pagamento:', { userId, paymentData, subscriptionData });
+
     // Verificar dados obrigatórios
     if (!userId) {
       throw new Error('ID do usuário é obrigatório');
     }
-    
+
     if (!paymentData || !paymentData.planName || !paymentData.amount) {
       throw new Error('Dados de pagamento incompletos');
     }
-    
+
     if (!subscriptionData || !subscriptionData.planId || !subscriptionData.reportsLeft) {
       throw new Error('Dados de assinatura incompletos');
     }
-    
+
     // Preparando os dados para enviar ao backend
     const backendPaymentData = {
       user_id: userId,
@@ -98,50 +98,50 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
       telefone: subscriptionData.telefone || '',
       auto_renew: subscriptionData.autoRenew || false,
       reports_left: subscriptionData.reportsLeft,
-      start_date: subscriptionData.startDate instanceof Date ? 
-                 subscriptionData.startDate.toISOString() : 
-                 new Date(subscriptionData.startDate).toISOString(),
-      end_date: subscriptionData.endDate instanceof Date ? 
-               subscriptionData.endDate.toISOString() : 
-               new Date(subscriptionData.endDate).toISOString()
+      start_date: subscriptionData.startDate instanceof Date ?
+        subscriptionData.startDate.toISOString() :
+        new Date(subscriptionData.startDate).toISOString(),
+      end_date: subscriptionData.endDate instanceof Date ?
+        subscriptionData.endDate.toISOString() :
+        new Date(subscriptionData.endDate).toISOString()
     };
-    
+
     console.log('[DEBUG REGISTRO] Dados formatados para o backend:', backendPaymentData);
     console.log('[DEBUG REGISTRO] Modo de desenvolvimento?', DEV_MODE ? 'SIM' : 'NÃO');
 
     // Modo de desenvolvimento (SEMPRE TRUE NESTA VERSÃO)
     if (DEV_MODE) {
       console.log('[DEBUG REGISTRO] Registro de pagamento (modo DEV) - salvando no Firebase diretamente');
-      
+
       // Verificar se este pagamento já foi registrado anteriormente
       try {
         console.log('[DEBUG REGISTRO] Verificando se o pagamento já existe...');
         const paymentId = backendPaymentData.payment_id;
         const existingPaymentDoc = await getDoc(doc(db, "pagamentos", paymentId));
-        
+
         if (existingPaymentDoc.exists()) {
           console.log('[DEBUG REGISTRO] Pagamento já registrado anteriormente com ID:', paymentId);
-          return { 
-            success: true, 
+          return {
+            success: true,
             paymentId: paymentId,
             message: 'Pagamento já registrado anteriormente',
             alreadyExists: true
           };
         }
-        
+
         // Verificar também na coleção de histórico
         const historyRef = collection(db, "pagamentos_historico");
         const historyQuery = query(
-          historyRef, 
+          historyRef,
           where("stripePaymentId", "==", paymentId),
           limit(1)
         );
-        
+
         const historySnapshot = await getDocs(historyQuery);
         if (!historySnapshot.empty) {
           console.log('[DEBUG REGISTRO] Pagamento já registrado no histórico com ID:', paymentId);
-          return { 
-            success: true, 
+          return {
+            success: true,
             paymentId: paymentId,
             message: 'Pagamento já registrado no histórico',
             alreadyExists: true
@@ -151,7 +151,7 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
         console.error('[DEBUG REGISTRO] Erro ao verificar existência do pagamento:', checkError);
         // Continuar com o processo mesmo se a verificação falhar
       }
-      
+
       // Atualizar o localStorage para manter consistência no modo DEV
       const mockUserData = {
         temPlano: true,
@@ -159,28 +159,28 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
           nome: subscriptionData.planName,
           relatorios_restantes: subscriptionData.reportsLeft,
           renovacao_automatica: subscriptionData.autoRenew,
-          data_inicio: subscriptionData.startDate instanceof Date ? 
-                       subscriptionData.startDate.toISOString() : 
-                       new Date(subscriptionData.startDate).toISOString(),
-          data_fim: subscriptionData.endDate instanceof Date ? 
-                     subscriptionData.endDate.toISOString() : 
-                     new Date(subscriptionData.endDate).toISOString()
+          data_inicio: subscriptionData.startDate instanceof Date ?
+            subscriptionData.startDate.toISOString() :
+            new Date(subscriptionData.startDate).toISOString(),
+          data_fim: subscriptionData.endDate instanceof Date ?
+            subscriptionData.endDate.toISOString() :
+            new Date(subscriptionData.endDate).toISOString()
         }
       };
-      
+
       localStorage.setItem('mock_user_data_' + userId, JSON.stringify(mockUserData));
       console.log('[DEBUG REGISTRO] Dados do usuário salvos no localStorage');
-      
+
       // Em modo de desenvolvimento, também salvar no Firebase diretamente
       try {
         console.log('[DEBUG REGISTRO] Tentando salvar no Firebase...');
-        
+
         // Gerar um ID único para o pagamento se não for fornecido
         // Isso ajuda a evitar duplicações
         if (!backendPaymentData.payment_id.includes('_')) {
           backendPaymentData.payment_id = `payment_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         }
-        
+
         // 1. Registrar no histórico de pagamentos (para compatibilidade)
         const pagamentoHistorico = {
           usuarioId: userId,
@@ -192,7 +192,7 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
           stripePaymentId: backendPaymentData.payment_id,
           tipo: paymentData.tipo
         };
-        
+
         console.log('[DEBUG REGISTRO] Salvando em pagamentos_historico:', pagamentoHistorico);
         const historyRef = collection(db, "pagamentos_historico");
         try {
@@ -202,7 +202,7 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
           console.error('[DEBUG REGISTRO] Erro ao salvar no histórico:', historyError);
           // Continuar mesmo em caso de erro no histórico
         }
-        
+
         // 2. Registrar pagamento na nova estrutura
         const pagamentoDoc = {
           userId: userId,
@@ -223,7 +223,7 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
             startDate: subscriptionData.startDate
           }
         };
-        
+
         console.log('[DEBUG REGISTRO] Salvando em pagamentos:', pagamentoDoc);
         try {
           await setDoc(doc(db, "pagamentos", backendPaymentData.payment_id), pagamentoDoc);
@@ -232,7 +232,7 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
           console.error('[DEBUG REGISTRO] Erro ao salvar em pagamentos:', pagamentoError);
           throw pagamentoError; // Este é crítico, então lançamos o erro
         }
-        
+
         // 3. Atualizar informações de assinatura no usuário
         const userSubscription = {
           planName: subscriptionData.planName,
@@ -243,16 +243,21 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
           stripeCustomerId: subscriptionData.stripeCustomerId || null,
           stripeSubscriptionId: subscriptionData.stripeSubscriptionId || null
         };
-        
+
         console.log('[DEBUG REGISTRO] Atualizando usuário com ID:', userId);
         try {
+          let creditosFinais = subscriptionData.reportsLeft;
+          if (subscriptionData.singleCreditAddition) {
+            // Se o flag estiver presente, calcular os créditos corretamente
+            creditosFinais = (subscriptionData.creditosAnteriores || 0) + (subscriptionData.creditosAdicionados || 0);
+          }
           await updateDoc(doc(db, "usuarios", userId), {
             subscription: userSubscription,
             temPlano: true,
-            creditosRestantes: subscriptionData.reportsLeft // Já contém a soma dos créditos existentes + novos
+            creditosRestantes: creditosFinais
           });
           console.log('[DEBUG REGISTRO] Assinatura do usuário atualizada com sucesso');
-          
+
           // Registrar a mudança de plano com a soma de créditos no histórico
           if (subscriptionData.previousPlan) {
             try {
@@ -276,9 +281,9 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
           console.error('[DEBUG REGISTRO] Erro ao atualizar usuário:', userError);
           // Não lançar erro aqui, pois o pagamento já foi registrado
         }
-        
-        return { 
-          success: true, 
+
+        return {
+          success: true,
           paymentId: backendPaymentData.payment_id,
           message: 'Pagamento registrado com sucesso no Firebase'
         };
@@ -287,12 +292,12 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
         alert(`Erro ao salvar no Firebase: ${error.message}`);
         throw error;
       }
-    } 
+    }
     else {
       // Modo produção - enviar para o backend via API
       try {
         console.log(`[DEBUG REGISTRO] Enviando pagamento para ${API_BASE_URL}/pagamentos/`);
-        
+
         const response = await fetch(`${API_BASE_URL}/pagamentos/`, {
           method: 'POST',
           headers: {
@@ -363,7 +368,7 @@ export const getPlanoUsuario = async (userId) => {
     if (DEV_MODE) {
       // Verificar se o usuário existe no localStorage
       const userData = localStorage.getItem('mock_user_data_' + userId);
-      
+
       if (userData) {
         // Se temos dados do usuário, verificar se ele tem plano
         const parsedData = JSON.parse(userData);
@@ -375,7 +380,7 @@ export const getPlanoUsuario = async (userId) => {
           };
         }
       }
-      
+
       // Por padrão retornar que não tem plano
       return {
         success: true,
@@ -484,14 +489,14 @@ export const listarCartoes = async (customerId) => {
       // Verificar se o usuário tem cartões salvos no localStorage
       const userCardsKey = 'mock_user_cards_' + customerId;
       const savedCards = localStorage.getItem(userCardsKey);
-      
+
       if (savedCards) {
         return {
           success: true,
           cards: JSON.parse(savedCards)
         };
       }
-      
+
       // Por padrão, retornar lista vazia
       return {
         success: true,
@@ -534,23 +539,23 @@ export const adicionarCartao = async (cardData) => {
         name: 'Novo Cartão',
         isDefault: cardData.set_default
       };
-      
+
       // Verificar se temos cartões salvos para o usuário
       const userCardsKey = 'mock_user_cards_' + cardData.customer_id;
       const savedCardsJson = localStorage.getItem(userCardsKey);
       const savedCards = savedCardsJson ? JSON.parse(savedCardsJson) : [];
-      
+
       // Se o novo cartão é padrão, remover padrão dos outros
       if (newCard.isDefault) {
         savedCards.forEach(card => card.isDefault = false);
       }
-      
+
       // Adicionar o novo cartão
       savedCards.push(newCard);
-      
+
       // Salvar no localStorage
       localStorage.setItem(userCardsKey, JSON.stringify(savedCards));
-      
+
       return {
         success: true,
         card: newCard
@@ -588,7 +593,7 @@ export const removerCartao = async (customerId, paymentMethodId) => {
     // Modo de desenvolvimento - retorna dados simulados
     if (DEV_MODE) {
       MOCK_DATA.cards = MOCK_DATA.cards.filter(card => card.id !== paymentMethodId);
-      
+
       return {
         success: true,
         message: 'Cartão removido com sucesso'
@@ -625,7 +630,7 @@ export const definirCartaoPadrao = async (customerId, paymentMethodId) => {
         ...card,
         isDefault: card.id === paymentMethodId
       }));
-      
+
       return {
         success: true,
         message: 'Cartão padrão atualizado com sucesso'
@@ -656,12 +661,12 @@ export const definirCartaoPadrao = async (customerId, paymentMethodId) => {
 export const obterHistoricoPagamentos = async (userId) => {
   try {
     console.log('[DEBUG] Buscando histórico de pagamentos para o usuário:', userId);
-    
+
     // Mesmo em modo de desenvolvimento, buscar diretamente do Firebase
     if (DEV_MODE) {
       try {
         console.log('[DEBUG] Buscando pagamentos do Firebase para o usuário:', userId);
-        
+
         // Buscar da coleção pagamentos_historico
         const historyRef = collection(db, "pagamentos_historico");
         const historyQuery = query(
@@ -669,10 +674,10 @@ export const obterHistoricoPagamentos = async (userId) => {
           where("usuarioId", "==", userId),
           orderBy("timestamp", "desc")
         );
-        
+
         const historySnapshot = await getDocs(historyQuery);
         const payments = [];
-        
+
         historySnapshot.forEach((doc) => {
           const data = doc.data();
           payments.push({
@@ -687,16 +692,16 @@ export const obterHistoricoPagamentos = async (userId) => {
             planName: data.planName
           });
         });
-        
+
         // Buscar também da nova coleção pagamentos
         const paymentsRef = collection(db, "pagamentos");
         const paymentsQuery = query(
           paymentsRef,
           where("userId", "==", userId)
         );
-        
+
         const paymentsSnapshot = await getDocs(paymentsQuery);
-        
+
         paymentsSnapshot.forEach((doc) => {
           const data = doc.data();
           // Verificar se este pagamento já está na lista (evitar duplicatas)
@@ -709,19 +714,19 @@ export const obterHistoricoPagamentos = async (userId) => {
               currency: 'brl',
               status: 'succeeded',
               created: data.subscription?.paymentInfo?.lastPaymentDate || new Date(),
-              payment_method_details: { 
-                type: data.subscription?.paymentInfo?.paymentMethod || 'unknown' 
+              payment_method_details: {
+                type: data.subscription?.paymentInfo?.paymentMethod || 'unknown'
               },
               description: `${data.subscription?.paymentInfo?.planName || 'Plano'} - ${data.subscription?.autoRenew ? 'Assinatura Mensal' : 'Pagamento único'}`,
               planName: data.subscription?.paymentInfo?.planName
             });
           }
         });
-        
+
         // Remover duplicatas baseadas no ID do pagamento
         const uniquePayments = [];
         const uniqueIds = new Set();
-        
+
         for (const payment of payments) {
           const uniqueId = payment.payment_id || payment.id;
           if (!uniqueIds.has(uniqueId)) {
@@ -729,16 +734,16 @@ export const obterHistoricoPagamentos = async (userId) => {
             uniquePayments.push(payment);
           }
         }
-        
+
         console.log('[DEBUG] Encontrados', payments.length, 'pagamentos, após remoção de duplicatas:', uniquePayments.length);
-        
+
         // Ordenar por data (mais recente primeiro)
         uniquePayments.sort((a, b) => {
           const dateA = a.created instanceof Date ? a.created : new Date(a.created);
           const dateB = b.created instanceof Date ? b.created : new Date(b.created);
           return dateB - dateA;
         });
-        
+
         return {
           success: true,
           payments: uniquePayments
@@ -764,27 +769,27 @@ export const obterHistoricoPagamentos = async (userId) => {
 
     // Processar a resposta e remover duplicatas
     const responseData = await response.json();
-    
+
     if (responseData.success && responseData.payments) {
       // Remover duplicatas baseadas no ID do pagamento
       const uniquePayments = [];
       const uniqueIds = new Set();
-      
+
       for (const payment of responseData.payments) {
         if (!uniqueIds.has(payment.id)) {
           uniqueIds.add(payment.id);
           uniquePayments.push(payment);
         }
       }
-      
+
       console.log('[DEBUG] API retornou', responseData.payments.length, 'pagamentos, após remoção de duplicatas:', uniquePayments.length);
-      
+
       return {
         success: true,
         payments: uniquePayments
       };
     }
-    
+
     return responseData;
   } catch (error) {
     console.error('Erro ao obter histórico de pagamentos:', error);
@@ -802,7 +807,7 @@ export const cancelarAssinatura = async (userId) => {
     // Modo de desenvolvimento - retorna dados simulados
     if (DEV_MODE) {
       MOCK_DATA.planoUsuario.plano.renovacao_automatica = false;
-      
+
       return {
         success: true,
         message: 'Assinatura cancelada com sucesso'
@@ -836,7 +841,7 @@ export const consumirRelatorio = async (userId) => {
     if (DEV_MODE) {
       // Verificar se o usuário existe no localStorage
       const userDataJson = localStorage.getItem('mock_user_data_' + userId);
-      
+
       if (!userDataJson) {
         return {
           success: false,
@@ -844,9 +849,9 @@ export const consumirRelatorio = async (userId) => {
           needsUpgrade: true
         };
       }
-      
+
       const userData = JSON.parse(userDataJson);
-      
+
       // Verificar se tem plano ativo
       if (!userData.temPlano || !userData.plano) {
         return {
@@ -855,7 +860,7 @@ export const consumirRelatorio = async (userId) => {
           needsUpgrade: true
         };
       }
-      
+
       // Verificar se tem relatórios disponíveis
       if (userData.plano.relatorios_restantes <= 0) {
         return {
@@ -864,11 +869,11 @@ export const consumirRelatorio = async (userId) => {
           needsUpgrade: true
         };
       }
-      
+
       // Decrementar e salvar
       userData.plano.relatorios_restantes -= 1;
       localStorage.setItem('mock_user_data_' + userId, JSON.stringify(userData));
-      
+
       return {
         success: true,
         relatorios_restantes: userData.plano.relatorios_restantes
@@ -940,7 +945,7 @@ export const criarCliente = async (userData) => {
 export const criarPagamentoPix = async (pixData) => {
   try {
     console.log('[DEBUG PIX-SERVICE] Iniciando criação de pagamento PIX:', pixData);
-    
+
     // Buscar dados do plano se não houver valor definido
     let valor = pixData.valor;
     if (!valor && pixData.plano_id) {
@@ -953,14 +958,14 @@ export const criarPagamentoPix = async (pixData) => {
       };
       valor = planoValores[pixData.plano_id] || 0;
     }
-    
+
     // Modo de desenvolvimento - retorna dados simulados
     if (DEV_MODE) {
       console.log('[DEBUG PIX-SERVICE] Usando modo de desenvolvimento para criar PIX');
-      
+
       // Gerar um ID único para o pagamento PIX
       const paymentId = `pix_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      
+
       // Usar uma URL real de QR code
       const mockResponse = {
         ...MOCK_DATA.checkout,
@@ -970,7 +975,7 @@ export const criarPagamentoPix = async (pixData) => {
         pix_code: '00020101021226890014br.gov.bcb.pix2567pix-qrcode.exemplo.com/pix/v2/' + paymentId,
         message: 'Pagamento PIX criado com sucesso (modo de desenvolvimento)'
       };
-      
+
       console.log('[DEBUG PIX-SERVICE] Resposta mockada:', mockResponse);
       return mockResponse;
     }
@@ -1007,12 +1012,12 @@ export const criarPagamentoPix = async (pixData) => {
 export const decrementReportsLeft = async (userId) => {
   try {
     console.log('[DEBUG] Decrementando relatórios para o usuário:', userId);
-    
+
     // Modo de desenvolvimento - usar localStorage
     if (DEV_MODE) {
       // Verificar se o usuário existe no localStorage
       const userDataJson = localStorage.getItem('mock_user_data_' + userId);
-      
+
       if (!userDataJson) {
         console.error('[DEBUG] Usuário não encontrado no localStorage');
         return {
@@ -1020,9 +1025,9 @@ export const decrementReportsLeft = async (userId) => {
           error: 'Usuário não encontrado'
         };
       }
-      
+
       const userData = JSON.parse(userDataJson);
-      
+
       // Verificar se tem plano ativo
       if (!userData.temPlano || !userData.plano) {
         console.error('[DEBUG] Usuário não possui plano ativo');
@@ -1031,7 +1036,7 @@ export const decrementReportsLeft = async (userId) => {
           error: 'Sem plano ativo'
         };
       }
-      
+
       // Verificar se tem relatórios disponíveis
       if (userData.plano.relatorios_restantes <= 0) {
         console.error('[DEBUG] Usuário não possui relatórios disponíveis');
@@ -1040,28 +1045,28 @@ export const decrementReportsLeft = async (userId) => {
           error: 'Não há relatórios disponíveis'
         };
       }
-      
+
       // Decrementar e salvar
       userData.plano.relatorios_restantes -= 1;
       localStorage.setItem('mock_user_data_' + userId, JSON.stringify(userData));
-      
+
       console.log('[DEBUG] Relatórios restantes:', userData.plano.relatorios_restantes);
-      
+
       // Atualizar também no Firebase
       try {
         // Buscar referência do documento do usuário
         const userRef = doc(db, "usuarios", userId);
         const userDoc = await getDoc(userRef);
-        
+
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          
+
           if (userData.subscription && userData.subscription.reportsLeft !== undefined) {
             // Decrementar relatórios
             await updateDoc(userRef, {
               "subscription.reportsLeft": userData.subscription.reportsLeft - 1
             });
-            
+
             console.log('[DEBUG] Relatórios decrementados no Firebase');
           }
         }
@@ -1069,7 +1074,7 @@ export const decrementReportsLeft = async (userId) => {
         console.error('[DEBUG] Erro ao atualizar Firebase, mas continuando com localStorage:', firebaseError);
         // Não falhar se o Firebase falhar, já que temos o localStorage
       }
-      
+
       return {
         success: true,
         relatorios_restantes: userData.plano.relatorios_restantes
