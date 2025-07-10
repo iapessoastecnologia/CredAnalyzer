@@ -202,12 +202,16 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
           console.error('[DEBUG REGISTRO] Erro ao salvar no histórico:', historyError);
           // Continuar mesmo em caso de erro no histórico
         }
+        
+        // Guardar o número de créditos fixos do plano
+        const creditosPlano = paymentData.creditosAdicionados || subscriptionData.reportsLeft;
 
         // 2. Registrar pagamento na nova estrutura
         const pagamentoDoc = {
           userId: userId,
           temPlano: true,
           telefone: subscriptionData?.telefone || '',
+          creditosPlano: creditosPlano, // Novo campo com os créditos fixos do plano
           subscription: {
             autoRenew: subscriptionData.autoRenew,
             endDate: subscriptionData.endDate,
@@ -220,6 +224,7 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
               planName: paymentData.planName
             },
             reportsLeft: subscriptionData.reportsLeft,
+            creditosPlano: creditosPlano, // Adicionando também dentro do subscription
             startDate: subscriptionData.startDate
           }
         };
@@ -247,15 +252,21 @@ export const registrarPagamento = async (userId, paymentData, subscriptionData) 
         console.log('[DEBUG REGISTRO] Atualizando usuário com ID:', userId);
         try {
           let creditosFinais = subscriptionData.reportsLeft;
+          let creditosPlano = subscriptionData.creditosAdicionados || 0;
+          
           if (subscriptionData.singleCreditAddition) {
             // Se o flag estiver presente, calcular os créditos corretamente
             creditosFinais = (subscriptionData.creditosAnteriores || 0) + (subscriptionData.creditosAdicionados || 0);
           }
+          
           await updateDoc(doc(db, "usuarios", userId), {
             subscription: userSubscription,
             temPlano: true,
-            creditosRestantes: creditosFinais
+            creditosRestantes: creditosFinais,
+            creditosPlano: creditosPlano, // Novo campo com os créditos do plano
+            "subscription.creditosPlano": creditosPlano // Também dentro do subscription
           });
+          
           console.log('[DEBUG REGISTRO] Assinatura do usuário atualizada com sucesso');
 
           // Registrar a mudança de plano com a soma de créditos no histórico
@@ -1061,10 +1072,13 @@ export const decrementReportsLeft = async (userId) => {
         if (userDoc.exists()) {
           const userData = userDoc.data();
 
+          // Decrementar apenas reportsLeft (não decrementar creditosPlano que deve se manter fixo)
           if (userData.subscription && userData.subscription.reportsLeft !== undefined) {
             // Decrementar relatórios
             await updateDoc(userRef, {
-              "subscription.reportsLeft": userData.subscription.reportsLeft - 1
+              "subscription.reportsLeft": userData.subscription.reportsLeft - 1,
+              // Atualizar também creditosRestantes para manter compatibilidade
+              "creditosRestantes": userData.subscription.reportsLeft - 1
             });
 
             console.log('[DEBUG] Relatórios decrementados no Firebase');

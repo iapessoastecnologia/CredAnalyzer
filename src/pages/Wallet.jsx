@@ -479,7 +479,7 @@ function Wallet() {
                     className="add-card-button"
                     onClick={() => setShowAddCardForm(!showAddCardForm)}
                   >
-                    {showAddCardForm ? 'Cancelar' : 'Adicionar Cartão'}
+                    {showAddCardForm ? 'Cancelar' : '+ Adicionar Cartão'}
                   </button>
                 </div>
 

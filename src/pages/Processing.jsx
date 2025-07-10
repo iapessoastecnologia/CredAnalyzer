@@ -29,6 +29,24 @@ function Processing() {
         return false;
       }
 
+      if (location.state?.fromPayment) {
+        try {
+          // Forçar atualização dos dados do servidor
+          await refreshUserSubscription();
+          
+          // Verificação direta do banco de dados após atualização
+          const db = firebase.firestore();
+          const userDoc = await db.collection('usuarios').doc(currentUser.uid).get();
+          const userData = userDoc.data();
+          
+          if (userData?.subscription?.reportsLeft > 0) {
+            setCreditosVerificados(true);
+            return true;
+          }
+        } catch (err) {
+          console.error("Erro ao verificar créditos diretamente:", err);
+        }
+      }
       try {
         // Verificar se o usuário tem plano e créditos suficientes
         if (!userSubscription || !userSubscription.reportsLeft || userSubscription.reportsLeft <= 0) {

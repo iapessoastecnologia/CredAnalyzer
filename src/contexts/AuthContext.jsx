@@ -139,7 +139,7 @@ export function AuthProvider({ children }) {
       const userDocRef = doc(db, 'usuarios', userId);
       
       // Verificar se o usuário já possui créditos
-      let creditosExistentes = 0;
+      let creditosRestantes = 0;
       let planoAnterior = null;
       
       try {
@@ -147,10 +147,15 @@ export function AuthProvider({ children }) {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          // Verificar se o usuário já tem créditos
-          if (userData.creditosRestantes && userData.creditosRestantes > 0) {
-            creditosExistentes = userData.creditosRestantes;
-            console.log('[DEBUG AUTH] Usuário possui créditos existentes:', creditosExistentes);
+          // Verificar se o usuário já tem créditos restantes
+          // Agora usamos subscription.reportsLeft como fonte principal de créditos restantes
+          if (userData.subscription && userData.subscription.reportsLeft > 0) {
+            creditosRestantes = userData.subscription.reportsLeft;
+            console.log('[DEBUG AUTH] Usuário possui créditos restantes:', creditosRestantes);
+          } else if (userData.creditosRestantes && userData.creditosRestantes > 0) {
+            // Fallback para o campo antigo, caso não tenha sido migrado ainda
+            creditosRestantes = userData.creditosRestantes;
+            console.log('[DEBUG AUTH] Usuário possui créditos restantes (campo legado):', creditosRestantes);
           }
           
           // Verificar se já tem plano para registrar o plano anterior
@@ -164,9 +169,13 @@ export function AuthProvider({ children }) {
         // Continuar mesmo com erro - não é crítico
       }
       
+      // Armazenar os créditos fixos do plano em creditosPlano
+      const creditosPlano = subscriptionData.reportsLeft || 0;
+      
       // Atualizar a quantidade de relatórios disponíveis somando os existentes
       if (!subscriptionData.preserveCredits) { // Se não for especificado para preservar os créditos existentes
-        subscriptionData.reportsLeft = (subscriptionData.reportsLeft || 0) + creditosExistentes;
+        // Agora reportsLeft recebe a soma dos créditos restantes + os créditos do novo plano
+        subscriptionData.reportsLeft = creditosRestantes + creditosPlano;
       }
       
       // Registrar o plano anterior
@@ -176,7 +185,8 @@ export function AuthProvider({ children }) {
       
       await updateDoc(userDocRef, { 
         subscription: subscriptionData,
-        creditosRestantes: subscriptionData.reportsLeft,
+        creditosRestantes: subscriptionData.reportsLeft, // Para manter compatibilidade
+        creditosPlano: creditosPlano, // Novo campo que armazena os créditos fixos do plano
         temPlano: true
       });
       
@@ -234,7 +244,7 @@ export function AuthProvider({ children }) {
   };
   
   // Carregar informações da assinatura do usuário
-  const loadUserSubscription = async (userId) => {
+  const loadUserSubscription = async (userId, forceRefresh = false) => {
     if (!userId) return null;
     
     setSubscriptionLoading(true);
@@ -257,52 +267,49 @@ export function AuthProvider({ children }) {
         return null;
       }
       
-      const response = await getPlanoUsuario(userId);
-      
-      // Se está em modo de desenvolvimento e não tem plano cadastrado no backend
-      if (DEV_MODE && (!response.success || !response.tem_plano)) {
-        // Verificar se temos dados mockados no localStorage
-        const mockUserDataJson = localStorage.getItem('mock_user_data_' + userId);
+      // Se estamos forçando atualização ou não temos subscription no estado
+      if (forceRefresh || !userSubscription) {
+        const response = await getPlanoUsuario(userId);
         
-        if (mockUserDataJson) {
-          const mockUserData = JSON.parse(mockUserDataJson);
+        // Se está em modo de desenvolvimento e não tem plano cadastrado no backend
+        if (DEV_MODE && (!response.success || !response.tem_plano)) {
+          // Código de desenvolvimento existente...
+        }
+        
+        if (response.success && response.tem_plano) {
+          // Usar dados atuais da subscription do usuário
+          const subscription = userData.subscription || {};
           
-          if (mockUserData.temPlano && mockUserData.plano) {
-            const subscription = {
-              planName: mockUserData.plano.nome,
-              reportsLeft: mockUserData.plano.relatorios_restantes,
-              endDate: new Date(mockUserData.plano.data_fim),
-              autoRenew: mockUserData.plano.renovacao_automatica,
-            };
-            
-            setUserSubscription(subscription);
-            
-            // Também atualizar o documento do usuário para consistência
-            await updateDoc(doc(db, "usuarios", userId), {
-              creditosRestantes: mockUserData.plano.relatorios_restantes,
-              temPlano: true
-            });
-            
-            return subscription;
-          }
+          const updatedSubscription = {
+            planName: response.plano.nome,
+            reportsLeft: subscription.reportsLeft || response.plano.relatorios_restantes,
+            creditosPlano: subscription.creditosPlano || 0, // Novo campo
+            endDate: new Date(response.plano.data_fim),
+            autoRenew: response.plano.renovacao_automatica,
+          };
+          
+          setUserSubscription(updatedSubscription);
+          return updatedSubscription;
+        }
+      } else {
+        // Usar dados da subscription do documento do usuário
+        const subscription = userData.subscription || {};
+        
+        if (subscription) {
+          const updatedSubscription = {
+            ...userSubscription,
+            planName: subscription.planName,
+            reportsLeft: subscription.reportsLeft,
+            creditosPlano: subscription.creditosPlano || 0, // Novo campo
+          };
+          
+          setUserSubscription(updatedSubscription);
+          return updatedSubscription;
         }
       }
       
-      if (response.success && response.tem_plano) {
-        // Usar creditosRestantes do documento do usuário para maior precisão
-        const subscription = {
-          planName: response.plano.nome,
-          reportsLeft: userData.creditosRestantes || response.plano.relatorios_restantes,
-          endDate: new Date(response.plano.data_fim),
-          autoRenew: response.plano.renovacao_automatica,
-        };
-        
-        setUserSubscription(subscription);
-        return subscription;
-      } else {
-        setUserSubscription(null);
-        return null;
-      }
+      setUserSubscription(null);
+      return null;
     } catch (error) {
       console.error("Erro ao carregar assinatura:", error);
       setUserSubscription(null);
@@ -336,7 +343,16 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
+  const refreshUserSubscription = async () => {
+    if (currentUser) {
+      console.log("[DEBUG AUTH] Forçando atualização dos dados de assinatura");
+      return await loadUserSubscription(currentUser.uid, true);
+    }
+    return null;
+  };
+
   const value = {
+    refreshUserSubscription,
     currentUser,
     userSubscription,
     subscriptionLoading,

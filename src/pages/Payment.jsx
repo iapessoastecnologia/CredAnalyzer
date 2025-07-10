@@ -106,8 +106,11 @@ function Payment() {
         
         // Redirecionar após um pequeno delay
         setTimeout(() => {
-          navigate('/wallet', { 
-            state: { paymentSuccess: true, plan: selectedPlan } 
+          navigate('/processing', { 
+            state: { 
+              files: selectedFiles, 
+              fromPayment: true 
+            } 
           });
         }, 1000);
         
@@ -124,9 +127,14 @@ function Payment() {
           const userData = userDoc.data();
           
           // Verificar se o usuário já tem créditos
-          if (userData.creditosRestantes && userData.creditosRestantes > 0) {
+          // Agora usamos subscription.reportsLeft como fonte principal de créditos restantes
+          if (userData.subscription && userData.subscription.reportsLeft > 0) {
+            creditosExistentes = userData.subscription.reportsLeft;
+            console.log('[DEBUG PAYMENT] Usuário possui créditos restantes (subscription):', creditosExistentes);
+          } else if (userData.creditosRestantes && userData.creditosRestantes > 0) {
+            // Fallback para o campo antigo, caso não tenha sido migrado ainda
             creditosExistentes = userData.creditosRestantes;
-            console.log('[DEBUG PAYMENT] Usuário possui créditos existentes:', creditosExistentes);
+            console.log('[DEBUG PAYMENT] Usuário possui créditos restantes (legado):', creditosExistentes);
           }
           
           // Verificar se já tem plano para registrar o plano anterior
