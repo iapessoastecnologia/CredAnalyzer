@@ -160,7 +160,7 @@
 }
 
 .report-icon {
-  transform: rotate(15deg) translateX(40px);
+  /* transform: rotate(15deg) translateX(40px); */
   background: linear-gradient(to bottom, var(--color-secondary) 0%, var(--color-secondary) 30%, white 30%);
   z-index: 1;
 }
