@@ -289,6 +289,168 @@
   }
 }
 
+/* Estilos para modo escuro */
+@media (prefers-color-scheme: dark) {
+  .report-container {
+    background-color: #121212; /* Fundo escuro para o container principal */
+    color: #FFFFFF; /* Texto em branco para melhor legibilidade */
+  }
+  
+  .report-container h1 {
+    color: var(--color-primary);
+  }
+  
+  .report-container h1::after {
+    background-color: var(--color-secondary);
+  }
+  
+  .home-button, .download-btn {
+    background-color: var(--color-primary); /* Agora amarelo */
+    color: #121212; /* Texto escuro para contraste */
+  }
+  
+  .home-button:hover, .download-btn:hover {
+    background-color: #e6ac00; /* Tom mais escuro do amarelo */
+    box-shadow: 0 7px 20px rgba(255, 192, 0, 0.25);
+  }
+  
+  .download-btn:disabled {
+    background-color: #444444;
+    color: #888888;
+  }
+  
+  .report-content {
+    background-color: #1e1e1e;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  
+  .report-content::before {
+    background: radial-gradient(circle, rgba(255, 192, 0, 0.03) 0%, rgba(30, 30, 30, 0) 70%);
+  }
+  
+  /* Markdown no modo escuro */
+  .markdown-container h1,
+  .markdown-container h2,
+  .markdown-container h3,
+  .markdown-container h4,
+  .markdown-container h5,
+  .markdown-container h6 {
+    color: var(--color-primary);
+  }
+  
+  .markdown-container h1 {
+    border-bottom: 2px solid #333;
+  }
+  
+  .markdown-container h2 {
+    border-bottom: 1px solid var(--color-secondary);
+  }
+  
+  .markdown-container blockquote {
+    border-left: 4px solid #444;
+    color: #cccccc;
+  }
+  
+  .markdown-container code {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+  }
+  
+  .markdown-container pre {
+    background-color: #2a2a2a;
+  }
+  
+  .markdown-container th,
+  .markdown-container td {
+    border: 1px solid #444;
+  }
+  
+  .markdown-container th {
+    background-color: #2a2a2a;
+  }
+  
+  .markdown-container tr:nth-child(even) {
+    background-color: #252525;
+  }
+  
+  .markdown-container strong {
+    color: #FFFFFF;
+    font-weight: 700;
+  }
+  
+  /* Campos com valores */
+  .relatório-campo {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+  
+  .relatório-valor {
+    color: #FFFFFF;
+    font-weight: 500;
+  }
+  
+  /* Estilizando campos de dados específicos */
+  #dados-cadastrais .campo-label,
+  #dados-financeiros .campo-label {
+    color: var(--color-primary);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  
+  #dados-cadastrais .campo-valor,
+  #dados-financeiros .campo-valor {
+    color: #FFFFFF;
+    font-weight: 500;
+  }
+  
+  /* Títulos de seção com melhor visibilidade */
+  .relatório-executivo-titulo {
+    color: var(--color-primary);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid var(--color-secondary);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .error-message {
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+  }
+  
+  .saving-message {
+    background-color: #252525;
+    border: 1px solid #333;
+  }
+  
+  .success-message {
+    background-color: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+  }
+  
+  .save-button {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .save-button:hover {
+    background-color: #e6ac00;
+  }
+  
+  .no-credits-container {
+    background-color: #252525;
+    border: 1px solid #444;
+  }
+  
+  .primary-button {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .primary-button:hover {
+    background-color: #e6ac00;
+  }
+}
+
 /* Estilos para mensagens de status */
 .error-message {
   background-color: #ffe6e6;

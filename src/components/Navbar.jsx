@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import logo from '../assets/logo.png';
+import logo from '../assets/logo.svg';
 
 function Navbar() {
   const { currentUser, logout } = useAuth();
@@ -11,6 +11,24 @@ function Navbar() {
   const location = useLocation();
   const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Verificar se o modo escuro está ativado
+    const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDarkMode(darkModeMediaQuery.matches);
+
+    // Adicionar listener para mudanças no tema
+    const handleDarkModeChange = (e) => {
+      setIsDarkMode(e.matches);
+    };
+    
+    darkModeMediaQuery.addEventListener('change', handleDarkModeChange);
+    
+    return () => {
+      darkModeMediaQuery.removeEventListener('change', handleDarkModeChange);
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchUserData() {
@@ -55,12 +73,19 @@ function Navbar() {
     navigate('/profile');
   }
 
+  // Determinar a classe CSS para o logo com base no tema
+  const logoClass = isDarkMode ? 'logo-dark-theme' : 'logo-light-theme';
+
   return (
     <nav className="navbar">
       <div className="navbar-container">
         <div className="navbar-logo">
           <Link to="/" className="logo-link">
-            <img src={logo} alt="Logo" className="logo-image" />
+            <img 
+              src={logo} 
+              alt="Logo" 
+              className={`logo-image ${logoClass}`}
+            />
           </Link>
         </div>
         

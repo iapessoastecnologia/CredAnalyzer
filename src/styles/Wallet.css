@@ -913,3 +913,300 @@ input:checked + .slider:before {
 .modal-actions .primary-button:hover {
   background-color: #3d8b40;
 } 
+
+/* Estilos para modo escuro */
+@media (prefers-color-scheme: dark) {
+  .wallet-container {
+    background-color: var(--color-background);
+  }
+  
+  .wallet-sidebar {
+    background-color: #1a1a1a;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  }
+  
+  .wallet-sidebar h3 {
+    color: var(--color-primary);
+  }
+  
+  .wallet-sidebar h3::after {
+    background-color: var(--color-secondary);
+  }
+  
+  .wallet-sidebar li {
+    color: var(--color-text);
+  }
+  
+  .wallet-sidebar li::before {
+    background-color: var(--color-primary);
+  }
+  
+  .wallet-sidebar li:hover {
+    color: var(--color-primary);
+  }
+  
+  .wallet-sidebar li.active {
+    background-color: var(--color-primary);
+    color: #121212;
+    box-shadow: 0 4px 8px rgba(255, 192, 0, 0.2);
+  }
+  
+  .wallet-content {
+    background-color: #121212;
+  }
+  
+  .section-header h2 {
+    color: var(--color-primary);
+  }
+  
+  .section-header h2::after {
+    background-color: var(--color-secondary);
+  }
+  
+  .add-card-button {
+    background-color: var(--color-secondary);
+    color: white;
+  }
+  
+  .add-card-button:hover {
+    box-shadow: 0 6px 12px rgba(11, 57, 84, 0.2);
+  }
+  
+  .add-card-form {
+    background-color: #1e1e1e;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .form-group label {
+    color: var(--color-primary);
+  }
+  
+  .form-group input {
+    background-color: #252525;
+    border-color: #3d3d3d;
+    color: var(--color-text);
+  }
+  
+  .form-group input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(255, 192, 0, 0.1);
+  }
+  
+  .save-card-button {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .save-card-button:hover {
+    box-shadow: 0 6px 12px rgba(255, 192, 0, 0.15);
+  }
+  
+  .card-item {
+    background-color: #1e1e1e;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .card-item.default {
+    border-color: var(--color-primary);
+  }
+  
+  .default-badge {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .set-default-button, .remove-card-button {
+    background-color: #252525;
+    color: var(--color-text);
+  }
+  
+  .set-default-button:hover {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .remove-card-button:hover {
+    background-color: #c82333;
+  }
+  
+  .payments-table-container {
+    background-color: #1a1a1a;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .payments-table th {
+    background-color: #0a0a0a;
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+  
+  /* Ajuste na tabela de pagamentos para melhor contraste - sempre visível como no hover */
+  .payments-table td {
+    border-bottom: 1px solid #2a2a2a;
+    color: #FFFFFF;
+    background-color: #252525; /* Aplicando o estilo de hover por padrão */
+  }
+  
+  /* Mantendo um destaque leve ao passar o mouse */
+  .payments-table tr:hover td {
+    background-color: #2a2a2a; 
+  }
+  
+  /* Tabela de pagamentos na carteira - completa */
+  .payment-table-container {
+    background-color: #1a1a1a;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .payment-table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  
+  .payment-table th {
+    background-color: #0a0a0a;
+    color: var(--color-primary);
+    font-weight: 600;
+    padding: 1rem;
+    text-align: left;
+  }
+  
+  /* Aplicando o mesmo estilo na tabela de pagamentos específica */
+  .payment-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #2a2a2a;
+    color: #FFFFFF;
+    background-color: #252525; /* Visível por padrão */
+  }
+  
+  .payment-table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .payment-table tr:hover td {
+    background-color: #2a2a2a;
+  }
+  
+  .payment-status {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  
+  .subscription-details {
+    background-color: #1e1e1e;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .subscription-card {
+    background-color: #252525;
+    border: 1px solid #333333;
+  }
+  
+  .subscription-header h3 {
+    color: var(--color-primary);
+  }
+  
+  .subscription-header h3::after {
+    background-color: var(--color-secondary);
+  }
+  
+  .info-label {
+    color: #a0a0a0;
+  }
+  
+  .info-value {
+    color: var(--color-text);
+  }
+  
+  .slider {
+    background-color: #333333;
+  }
+  
+  input:checked + .slider {
+    background-color: var(--color-primary);
+  }
+  
+  .change-plan-button {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .change-plan-button:hover {
+    background-color: #e6ac00;
+  }
+  
+  .credits-note {
+    color: #a0a0a0;
+  }
+  
+  .subscription-info-box {
+    background-color: #252525;
+    border: 1px solid #333333;
+  }
+  
+  .subscription-info-box h4 {
+    color: var(--color-primary);
+  }
+  
+  .empty-state {
+    background-color: #1e1e1e;
+  }
+  
+  .empty-button {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .empty-button:hover {
+    background-color: #e6ac00;
+  }
+  
+  .error-message {
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+  }
+  
+  .success-message {
+    background-color: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+  }
+  
+  .payment-table th {
+    background-color: #252525;
+    color: var(--color-text);
+  }
+  
+  .payment-table td {
+    border-bottom: 1px solid #333333;
+  }
+  
+  .payment-table tr:hover {
+    background-color: #252525;
+  }
+  
+  .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+  
+  .modal-content {
+    background-color: #1e1e1e;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  }
+  
+  .modal-actions .secondary-button {
+    background-color: #333333;
+    color: var(--color-text);
+  }
+  
+  .modal-actions .primary-button {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .modal-actions .primary-button:hover {
+    background-color: #e6ac00;
+  }
+} 

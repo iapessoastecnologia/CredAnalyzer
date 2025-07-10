@@ -549,3 +549,117 @@
     font-size: 14px;
   }
 } 
+
+/* Estilos para modo escuro */
+@media (prefers-color-scheme: dark) {
+  .processing-container::before,
+  .processing-container::after {
+    background: radial-gradient(circle, rgba(255, 192, 0, 0.05) 0%, rgba(18, 18, 18, 0) 70%);
+  }
+  
+  .processing-content {
+    background-color: #1e1e1e;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  }
+  
+  .processing-content h1 {
+    color: var(--color-primary);
+  }
+  
+  .processing-content p {
+    color: #d0d0d0;
+  }
+  
+  .loading-spinner {
+    border: 4px solid rgba(255, 192, 0, 0.1);
+    border-top-color: var(--color-primary);
+    border-left-color: var(--color-secondary);
+  }
+  
+  .loading-spinner::before {
+    border-top-color: var(--color-secondary);
+  }
+  
+  .loading-spinner::after {
+    border-top-color: var(--color-primary);
+  }
+  
+  .processing-container .document {
+    background-color: #252525;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .upgrade-button {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .upgrade-button:hover {
+    background-color: #e6ac00;
+  }
+  
+  .back-button {
+    background-color: #252525;
+    color: #e0e0e0;
+    border: 1px solid #3d3d3d;
+  }
+  
+  .back-button:hover {
+    background-color: #333333;
+  }
+  
+  .error-details {
+    background-color: #252525;
+    border: 1px solid #3d3d3d;
+  }
+  
+  .error-message {
+    color: #ff6b6b;
+  }
+  
+  .error-help {
+    background-color: #252525;
+    border: 1px solid #3d3d3d;
+  }
+  
+  .error-help h3 {
+    color: var(--color-primary);
+  }
+  
+  .error-help code {
+    background-color: #333333;
+    color: #e0e0e0;
+  }
+  
+  .progress-bar {
+    background-color: #333333;
+  }
+  
+  .progress-fill {
+    background: linear-gradient(90deg, var(--color-primary) 0%, #e6ac00 100%);
+  }
+  
+  .step-number {
+    background-color: #252525;
+    color: #e0e0e0;
+    border: 2px solid #444444;
+  }
+  
+  .step-text {
+    color: #cccccc;
+  }
+  
+  .step.active .step-number {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .step.active .step-text {
+    color: var(--color-primary);
+  }
+  
+  .step.completed .step-number {
+    background-color: var(--color-secondary);
+    color: white;
+  }
+} 

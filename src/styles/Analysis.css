@@ -286,6 +286,91 @@
   }
 }
 
+/* Estilos para modo escuro */
+@media (prefers-color-scheme: dark) {
+  .analysis-container {
+    background-color: var(--color-background);
+  }
+  
+  .analysis-container h1 {
+    color: var(--color-primary);
+  }
+  
+  .analysis-container h1::after {
+    background-color: var(--color-secondary);
+  }
+  
+  .document-form {
+    background-color: #1e1e1e;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  
+  .document-form::before {
+    background: radial-gradient(circle, rgba(255, 192, 0, 0.05) 0%, rgba(18, 18, 18, 0) 70%);
+  }
+  
+  .document-selection h2 {
+    color: var(--color-primary);
+  }
+  
+  .document-item {
+    border-bottom: 1px solid #2a2a2a;
+  }
+  
+  .document-item label {
+    color: var(--color-primary);
+  }
+  
+  .document-item input[type="checkbox"] {
+    border: 2px solid #3d3d3d;
+    background-color: #2d2d2d;
+  }
+  
+  .document-item input[type="checkbox"]:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  
+  .document-item input[type="checkbox"]:checked::before {
+    color: #121212;
+  }
+  
+  .file-upload input[type="file"] {
+    border: 2px dashed #3d3d3d;
+    background-color: #252525;
+  }
+  
+  .file-upload input[type="file"]:hover {
+    border-color: var(--color-primary);
+    background-color: rgba(255, 192, 0, 0.05);
+  }
+  
+  .file-upload input[type="file"]::file-selector-button {
+    background-color: var(--color-primary);
+    color: #121212;
+  }
+  
+  .file-upload input[type="file"]::file-selector-button:hover {
+    background-color: #e6ac00;
+  }
+  
+  .send-documents-button {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #e6ac00 100%);
+    color: #121212;
+    box-shadow: 0 4px 15px rgba(255, 192, 0, 0.2);
+  }
+  
+  .send-documents-button:hover {
+    box-shadow: 0 7px 20px rgba(255, 192, 0, 0.3);
+  }
+  
+  .file-name {
+    color: var(--color-text);
+    background-color: #252525;
+    border-color: #3d3d3d;
+  }
+}
+
 .file-name {
   display: block;
   margin-top: 5px;

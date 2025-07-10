@@ -24,6 +24,17 @@
   height: auto;
 }
 
+/* Classes para controlar a cor do SVG logo baseado no tema */
+.logo-light-theme {
+  /* Cor azul marinho (#0B3954) usando variável CSS */
+  filter: invert(22%) sepia(82%) saturate(1253%) hue-rotate(182deg) brightness(94%) contrast(96%);
+}
+
+.logo-dark-theme {
+  /* Preto para contrastar com o fundo amarelo */
+  filter: brightness(0) saturate(100%);
+}
+
 .logo-link {
   text-decoration: none;
 }
@@ -196,5 +207,63 @@
   
   .user-name::after {
     font-size: 1.1rem;
+  }
+} 
+
+@media (prefers-color-scheme: dark) {
+  .navbar {
+    background-color: var(--color-primary); /* Agora será amarelo no modo escuro */
+  }
+  
+  .navbar-title h1 {
+    color: #121212; /* Texto escuro para contraste com o fundo amarelo */
+  }
+  
+  .highlight {
+    color: var(--color-secondary); /* Agora será azul no modo escuro */
+  }
+  
+  /* Atualizar a classe do logo para o modo escuro */
+  .logo-dark-theme {
+    filter: brightness(0) saturate(100%); /* Preto para contrastar com o fundo amarelo */
+  }
+  
+  .user-name {
+    color: var(--color-secondary); /* Texto escuro */
+    background-color: #ffcb33; /* Amarelo um pouco mais claro para destacar */
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+  }
+  
+  .user-name::before {
+    background-color: var(--color-secondary); /* Agora azul */
+  }
+  
+  .user-name::after {
+    color: var(--color-secondary); /* Agora azul */
+  }
+  
+  .user-name:hover {
+    background-color: #ffd966; /* Ainda mais claro no hover */
+    transform: translateY(-2px);
+  }
+  
+  .logout-button {
+    color: #121212;
+    border: 1px solid #121212;
+  }
+  
+  .logout-button:hover {
+    background-color: rgba(0, 0, 0, 0);
+  }
+  
+  .login-button {
+    background-color: var(--color-secondary); /* Agora azul */
+    color: white; /* Texto branco para contraste */
+    border: none;
+  }
+  
+  .login-button:hover {
+    background-color: #0a2e43; /* Tom mais escuro do azul */
   }
 } 
