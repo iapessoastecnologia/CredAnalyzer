@@ -529,9 +529,9 @@
   }
   
   .benefits-section .cta-button:hover {
-    background-color: #fff;
-    color: var(--color-secondary);
-    box-shadow: 0 10px 30px rgba(255, 255, 255, 0.2);
+    /* background-color: #fff;
+    color: var(--color-secondary); */
+    box-shadow: 0 7px 20px rgba(255, 192, 0, 0.3)
   }
   
   /* Footer com melhor contraste */

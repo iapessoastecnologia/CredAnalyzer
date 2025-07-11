@@ -825,6 +825,9 @@ input:checked + .slider:before {
   align-items: center;
 }
 
+.payment-method-profile-screen{
+  border: none;
+}
 /* Estado vazio */
 .empty-state {
   text-align: center;
@@ -965,8 +968,8 @@ input:checked + .slider:before {
   }
   
   .add-card-button {
-    background-color: var(--color-secondary);
-    color: white;
+    background-color: var(--color-primary);
+    color: #121212;
   }
   
   .add-card-button:hover {
@@ -1195,10 +1198,19 @@ input:checked + .slider:before {
     background-color: #1e1e1e;
     box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
   }
+
+  .modal-content h3, .modal-content p{
+    color: #fff;
+  }
   
   .modal-actions .secondary-button {
     background-color: #333333;
     color: var(--color-text);
+  }
+
+  .modal-actions .secondary-button:hover{
+    color:#1a1a1a;
+    background-color: #fff;
   }
   
   .modal-actions .primary-button {

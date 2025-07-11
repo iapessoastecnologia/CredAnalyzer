@@ -249,12 +249,14 @@
   }
   
   .logout-button {
+    background-color: transparent;
     color: #121212;
     border: 1px solid #121212;
   }
   
   .logout-button:hover {
-    background-color: rgba(0, 0, 0, 0);
+    background-color: #121212;
+    color: #e6ac00;
   }
   
   .login-button {

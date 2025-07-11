@@ -631,7 +631,7 @@ function Wallet() {
                             <td>{payment.planName}</td>
                             <td>{formatCurrency(payment.amount)}</td>
                             <td>
-                              <div className="payment-method">
+                              <div className="payment-method-profile-screen">
                                 {getPaymentMethodDisplay(payment.paymentMethod)}
                               </div>
                             </td>

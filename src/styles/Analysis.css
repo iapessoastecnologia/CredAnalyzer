@@ -327,7 +327,7 @@
   }
   
   .document-item input[type="checkbox"]:checked {
-    background-color: var(--color-primary);
+    background-color: var(--color-primary) !important; 
     border-color: var(--color-primary);
   }
   
@@ -365,7 +365,7 @@
   }
   
   .file-name {
-    color: var(--color-text);
+    color: var(--color-text) !important;
     background-color: #252525;
     border-color: #3d3d3d;
   }
