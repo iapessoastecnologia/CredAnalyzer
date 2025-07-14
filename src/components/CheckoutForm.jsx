@@ -9,11 +9,23 @@ function CheckoutForm({ selectedPlan, paymentType = 'payment', onSuccess, onErro
   const [message, setMessage] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [cardComplete, setCardComplete] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   
   const stripe = useStripe();
   const elements = useElements();
   const auth = useAuth();
   const currentUser = auth?.currentUser;
+  
+  // Detectar modo escuro
+  useEffect(() => {
+    const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDarkMode(darkModeQuery.matches);
+    
+    const handleChange = (e) => setIsDarkMode(e.matches);
+    darkModeQuery.addEventListener('change', handleChange);
+    
+    return () => darkModeQuery.removeEventListener('change', handleChange);
+  }, []);
   
   // Função que será chamada quando o componente for montado
   useEffect(() => {
@@ -127,6 +139,25 @@ function CheckoutForm({ selectedPlan, paymentType = 'payment', onSuccess, onErro
     }
   };
   
+  // Definir estilos para o campo de cartão com base no tema
+  const cardElementStyle = {
+    style: {
+      base: {
+        fontSize: '16px',
+        color: isDarkMode ? '#e0e0e0' : '#424770',
+        '::placeholder': {
+          color: isDarkMode ? '#aaa' : '#aab7c4',
+        },
+        iconColor: isDarkMode ? '#ffc000' : '#0B3954',
+      },
+      invalid: {
+        color: '#9e2146',
+        iconColor: isDarkMode ? '#ff6b6b' : '#9e2146',
+      },
+    },
+    hidePostalCode: true
+  };
+  
   // Se não houver usuário autenticado, mostrar mensagem de carregamento
   if (!currentUser) {
     return (
@@ -143,21 +174,7 @@ function CheckoutForm({ selectedPlan, paymentType = 'payment', onSuccess, onErro
       <form onSubmit={handleSubmit} className="checkout-form">
         <div className="card-element-container">
           <CardElement 
-            options={{
-              style: {
-                base: {
-                  fontSize: '16px',
-                  color: '#424770',
-                  '::placeholder': {
-                    color: '#aab7c4',
-                  },
-                },
-                invalid: {
-                  color: '#9e2146',
-                },
-              },
-              hidePostalCode: true
-            }}
+            options={cardElementStyle}
             onChange={handleCardChange}
           />
         </div>

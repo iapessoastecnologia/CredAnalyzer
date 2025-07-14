@@ -212,3 +212,85 @@
   color: var(--color-primary);
   text-align: center;
 } 
+
+/* Modo escuro para o formulário de checkout */
+@media (prefers-color-scheme: dark) {
+  .checkout-form {
+    background-color: #2a2a2a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  .card-element-container {
+    background-color: #333;
+    border-color: #444;
+  }
+  
+  .checkout-button {
+    background-color: #ffc000;
+    color: #222;
+    border: none;
+    font-weight: bold;
+  }
+  
+  .checkout-button:hover {
+    background-color: #ffcc33;
+  }
+  
+  .checkout-button:disabled {
+    background-color: #555;
+    color: #999;
+  }
+  
+  .security-info {
+    color: #c0c0c0;
+  }
+  
+  /* Estilos para PIX no modo escuro */
+  .pix-checkout {
+    background-color: #2a2a2a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  .checkout-info {
+    color: #e0e0e0;
+  }
+  
+  .pix-qrcode img {
+    border-color: #444;
+    background-color: #fff;
+  }
+  
+  .pix-copy-box {
+    background-color: #333;
+    border-color: #444;
+  }
+  
+  .pix-code {
+    color: #e0e0e0;
+  }
+  
+  .copy-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .pix-instructions {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #e0e0e0;
+  }
+  
+  .pix-expiration {
+    color: #c0c0c0;
+  }
+  
+  .amount {
+    color: #ffc000;
+  }
+  
+  .checkout-loading {
+    background-color: rgba(42, 42, 42, 0.8);
+  }
+  
+  .checkout-loading p {
+    color: #ffc000;
+  }
+} 

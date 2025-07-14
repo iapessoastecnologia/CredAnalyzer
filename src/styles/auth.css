@@ -126,10 +126,12 @@
   cursor: pointer;
   padding: 0;
   font-size: 0.9rem;
+  box-shadow: none;
 }
 
 .auth-link:hover {
   text-decoration: underline;
+  box-shadow: none;
 }
 
 @media (prefers-color-scheme: dark) {

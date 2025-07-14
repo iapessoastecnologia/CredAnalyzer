@@ -5,6 +5,33 @@
   background-color: var(--color-background);
 }
 
+/* Estilos específicos para o botão de pagamento */
+.checkout-button,
+button[type="submit"] {
+  background-color: var(--color-secondary);
+  color: var(--color-primary);
+  font-weight: bold;
+  border-radius: var(--border-radius);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(255, 192, 0, 0.2);
+}
+
+.checkout-button:hover,
+button[type="submit"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(255, 192, 0, 0.3);
+}
+
+/* Estilo específico para o botão dentro do componente de checkout */
+form .checkout-button {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  margin-top: 1.5rem;
+}
+
 .payment-header {
   text-align: center;
   margin-bottom: 3rem;
@@ -151,11 +178,12 @@
   color: var(--color-text);
 }
 
+/* Modificando a cor dos checks na linha 132 */
 .plan-features p::before {
   content: "✓";
   position: absolute;
   left: 0;
-  color: var(--color-secondary);
+  color: var(--color-secondary);  /* Cor amarela/dourada */
   font-weight: bold;
 }
 
@@ -536,4 +564,127 @@
 
 .modal-button:hover {
   background-color: #0a2f45;
+} 
+
+/* Adicionar estilos específicos para o modo escuro no final do arquivo */
+/* Modo escuro - ajustando os checks e melhorando o formulário/botão */
+@media (prefers-color-scheme: dark) {
+  .plan-card {
+    background-color: #2a2a2a;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    color: #e0e0e0;
+  }
+  
+  /* Fazendo os checks ficarem amarelos */
+  .plan-features p::before {
+    color: #ffc000;  /* Cor amarela/dourada */
+  }
+
+  .plan-card h3,
+  .payment-methods-container h2,
+  .payment-status h3,
+  .modal-content h3 {
+    color: #e0e0e0;
+  }
+
+  .plan-features p {
+    color: #d0d0d0;
+  }
+
+  .payment-method {
+    background-color: #2a2a2a;
+    border-color: #444;
+  }
+
+  .payment-method-details h4 {
+    color: #ffc000;
+  }
+
+  .payment-method-details p {
+    color: #c0c0c0;
+  }
+
+  .payment-summary {
+    background-color: #1a1a1a;
+    color: #d0d0d0;
+  }
+
+  .summary-item {
+    border-bottom-color: #444;
+  }
+
+  .summary-item.total {
+    color: #ffc000;
+  }
+
+  .select-plan-button {
+    background-color: #2a2a2a;
+    color: #ffc000;
+    border-color: #ffc000;
+  }
+
+  .select-plan-button:hover,
+  .select-plan-button.selected {
+    background-color: #ffc000;
+    color: #2a2a2a;
+  }
+
+  .payment-methods-container,
+  .payment-status,
+  .modal-content {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .modal-content p {
+    color: #d0d0d0;
+  }
+
+  .plan-price {
+    color: #ffc000;
+  }
+
+  .period {
+    color: #c0c0c0;
+  }
+  
+  /* Melhorando a legibilidade do campo de cartão */
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  input[type="email"] {
+    background-color: #333;
+    color: #e0e0e0;
+    border: 1px solid #555;
+  }
+  
+  /* Ajustando o botão de pagamento para melhor contraste */
+  .checkout-button,
+  button[type="submit"] {
+    background-color: #ffc000;
+    color: #222;
+    font-weight: bold;
+    border: none;
+    box-shadow: 0 4px 8px rgba(255, 192, 0, 0.2);
+  }
+  
+  .checkout-button:hover,
+  button[type="submit"]:hover {
+    background-color: #ffcc33;
+    box-shadow: 0 6px 12px rgba(255, 192, 0, 0.3);
+  }
+
+  /* Ajustes adicionais para o botão "Pagar agora" */
+  button[type="submit"].checkout-button {
+    background-color: #ffc000;
+    color: #222;
+    border: none;
+  }
+
+  .dev-mode-notice {
+    background-color: #443800;
+    color: #ffc000;
+    border: 1px solid #664f00;
+  }
 } 
