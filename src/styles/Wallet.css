@@ -946,7 +946,7 @@ input:checked + .slider:before {
   }
   
   .wallet-sidebar li:hover {
-    color: var(--color-primary);
+    color: white;
   }
   
   .wallet-sidebar li.active {
