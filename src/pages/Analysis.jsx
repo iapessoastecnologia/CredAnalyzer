@@ -94,7 +94,7 @@ function Analysis() {
   const getFileType = (key) => {
     const types = {
       incomeTax: 'ImpostoRenda',
-      registration: 'Registro',
+      registration: 'Registrato',
       taxStatus: 'SituacaoFiscal',
       taxBilling: 'FaturamentoFiscal',
       managementBilling: 'FaturamentoGerencial',
@@ -183,7 +183,7 @@ function Analysis() {
 const getLabel = (key) => {
   const labels = {
     incomeTax: 'Imposto de Renda',
-    registration: 'Registro',
+    registration: 'Registrato',
     taxStatus: 'Situação Fiscal',
     taxBilling: 'Faturamento Fiscal',
     managementBilling: 'Faturamento Gerencial',
