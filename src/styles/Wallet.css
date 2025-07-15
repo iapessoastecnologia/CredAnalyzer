@@ -1222,3 +1222,95 @@ input:checked + .slider:before {
     background-color: #e6ac00;
   }
 } 
+
+/* Formulário de Cartão do Stripe */
+.card-element-container {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--border-radius);
+  transition: border-color 0.3s;
+  min-height: 24px;
+}
+
+.card-element-container:hover {
+  border-color: var(--color-primary);
+}
+
+.checkout-message {
+  margin-top: 10px;
+  padding: 10px;
+  color: #dc3545;
+  font-size: 0.9rem;
+}
+
+.security-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.secure-icon {
+  margin-right: 8px;
+  font-size: 1rem;
+}
+
+.secure-text {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+}
+
+.cancel-button {
+  background-color: #f5f5f5;
+  color: var(--color-text);
+  border: 1px solid #e0e0e0;
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-right: 1rem;
+}
+
+.cancel-button:hover {
+  background-color: #e0e0e0;
+}
+
+.save-card-button:disabled,
+.cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Modo escuro para o formulário de cartão */
+@media (prefers-color-scheme: dark) {
+  .card-element-container {
+    background-color: #252525;
+    border-color: #3d3d3d;
+  }
+  
+  .card-element-container:hover {
+    border-color: var(--color-primary);
+  }
+  
+  .security-info {
+    border-top-color: #333;
+  }
+  
+  .secure-text {
+    color: #aaa;
+  }
+  
+  .cancel-button {
+    background-color: #333;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .cancel-button:hover {
+    background-color: #444;
+  }
+} 

@@ -6,6 +6,150 @@ import { db } from '../firebase/config';
 import '../styles/Wallet.css';
 import { listarCartoes, definirCartaoPadrao, removerCartao, adicionarCartao, obterHistoricoPagamentos, cancelarAssinatura, getPlanoUsuario } from '../services/paymentService';
 import { DEV_MODE } from '../services/paymentService';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import stripePromise from '../stripe/stripeConfig';
+
+// Componente de formulário de cartão com Stripe Elements
+function CardForm({ onAddCard, onCancel, customerStripeId, isLoading, setError, setSaveMessage }) {
+  const [cardComplete, setCardComplete] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const stripe = useStripe();
+  const elements = useElements();
+
+  // Detectar modo escuro
+  useEffect(() => {
+    const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDarkMode(darkModeQuery.matches);
+    
+    const handleChange = (e) => setIsDarkMode(e.matches);
+    darkModeQuery.addEventListener('change', handleChange);
+    
+    return () => darkModeQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Definir estilos para o campo de cartão com base no tema
+  const cardElementStyle = {
+    style: {
+      base: {
+        fontSize: '16px',
+        color: isDarkMode ? '#e0e0e0' : '#424770',
+        '::placeholder': {
+          color: isDarkMode ? '#aaa' : '#aab7c4',
+        },
+        iconColor: isDarkMode ? '#ffc000' : '#0B3954',
+      },
+      invalid: {
+        color: '#9e2146',
+        iconColor: isDarkMode ? '#ff6b6b' : '#9e2146',
+      },
+    },
+    hidePostalCode: true
+  };
+
+  const handleCardChange = (event) => {
+    setCardComplete(event.complete);
+    if (event.error) {
+      setMessage(event.error.message);
+    } else {
+      setMessage('');
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!stripe || !elements || !customerStripeId) {
+      return;
+    }
+    
+    setIsProcessing(true);
+    setMessage("");
+    
+    try {
+      const cardElement = elements.getElement(CardElement);
+      
+      // Criar método de pagamento com o Stripe
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+      });
+      
+      if (error) {
+        setMessage(error.message || "Ocorreu um erro ao processar o cartão.");
+        setIsProcessing(false);
+        setError(error.message);
+        return;
+      }
+      
+      // Passamos o payment_method_id para adicionar ao cliente
+      const cardData = {
+        customer_id: customerStripeId,
+        payment_method_id: paymentMethod.id,
+        set_default: true // Sempre definir como padrão ao adicionar
+      };
+      
+      const response = await adicionarCartao(cardData);
+      
+      if (response.success) {
+        setSaveMessage('Cartão adicionado com sucesso!');
+        setTimeout(() => setSaveMessage(''), 3000);
+        
+        // Limpar formulário e fechar
+        onAddCard();
+      } else {
+        setError(response.error || 'Erro ao adicionar cartão');
+      }
+    } catch (err) {
+      console.error("Erro ao adicionar cartão:", err);
+      setError('Falha ao adicionar cartão.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form className="add-card-form" onSubmit={handleSubmit}>
+      <div className="form-group">
+        <label htmlFor="card-element">Dados do Cartão</label>
+        <div className="card-element-container">
+          <CardElement
+            id="card-element"
+            options={cardElementStyle}
+            onChange={handleCardChange}
+          />
+        </div>
+      </div>
+      
+      {message && <div className="checkout-message">{message}</div>}
+      
+      <div className="form-actions">
+        <button 
+          type="button" 
+          className="cancel-button"
+          onClick={onCancel}
+          disabled={isProcessing}
+        >
+          Cancelar
+        </button>
+        <button 
+          type="submit" 
+          className="save-card-button"
+          disabled={!cardComplete || isProcessing || !stripe}
+        >
+          {isProcessing ? 'Processando...' : 'Salvar Cartão'}
+        </button>
+      </div>
+      
+      <div className="security-info">
+        <span className="secure-icon">🔒</span>
+        <span className="secure-text">Pagamento seguro com Stripe</span>
+      </div>
+    </form>
+  );
+}
 
 function Wallet() {
   const { currentUser } = useAuth();
@@ -17,12 +161,6 @@ function Wallet() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddCardForm, setShowAddCardForm] = useState(false);
-  const [newCard, setNewCard] = useState({
-    cardNumber: '',
-    cardName: '',
-    expiryDate: '',
-    cvv: ''
-  });
   const [userSubscription, setUserSubscription] = useState(null);
   const [saveMessage, setSaveMessage] = useState('');
   const [customerStripeId, setCustomerStripeId] = useState(null);
@@ -189,52 +327,13 @@ function Wallet() {
     fetchUserData();
   }, [currentUser, customerStripeId]);
 
-  const handleCardInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewCard({
-      ...newCard,
-      [name]: value
-    });
-  };
-
-  const handleAddCard = async (e) => {
-    e.preventDefault();
+  const handleAddCardSuccess = async () => {
+    setShowAddCardForm(false);
     
-    if (!customerStripeId) {
-      setError('Identificador do cliente não encontrado');
-      return;
-    }
-    
-    try {
+    // Recarregar cartões
+    if (customerStripeId) {
       setLoading(true);
-      
-      // Normalmente, você usaria Stripe Elements para gerenciar este processo
-      // de forma segura, mas para este exemplo, estamos simulando
-      alert('Em um ambiente real, você usaria Stripe Elements para coletar dados do cartão de forma segura');
-      
-      // Dados que seriam gerados pelo Stripe após processamento do cartão
-      const cardData = {
-        customer_id: customerStripeId,
-        payment_method_id: `pm_simulated_${Date.now()}`,
-        set_default: cards.length === 0
-      };
-      
-      const response = await adicionarCartao(cardData);
-      
-      if (response.success) {
-        setSaveMessage('Cartão adicionado com sucesso!');
-        setTimeout(() => setSaveMessage(''), 3000);
-        
-        setNewCard({
-          cardNumber: '',
-          cardName: '',
-          expiryDate: '',
-          cvv: ''
-        });
-        
-        setShowAddCardForm(false);
-        
-        // Recarregar cartões
+      try {
         const cardsResponse = await listarCartoes(customerStripeId);
         
         if (cardsResponse.success) {
@@ -249,14 +348,11 @@ function Wallet() {
           
           setCards(cardsData);
         }
-      } else {
-        setError(response.error || 'Erro ao adicionar cartão');
+      } catch (err) {
+        console.error("Erro ao buscar cartões:", err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Erro ao adicionar cartão:", err);
-      setError('Falha ao adicionar cartão.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -391,15 +487,6 @@ function Wallet() {
     }
   };
 
-  const detectCardBrand = (cardNumber) => {
-    if (cardNumber.startsWith('4')) return 'Visa';
-    if (cardNumber.startsWith('5')) return 'Mastercard';
-    if (cardNumber.startsWith('3')) return 'American Express';
-    if (cardNumber.startsWith('6')) return 'Discover';
-    
-    return 'Outro';
-  };
-
   const formatCurrency = (value) => {
     if (value === undefined || value === null) return 'R$ 0,00';
     
@@ -484,70 +571,16 @@ function Wallet() {
                 </div>
 
                 {showAddCardForm && (
-                  <form className="add-card-form" onSubmit={handleAddCard}>
-                    <div className="form-group">
-                      <label htmlFor="cardNumber">Número do Cartão</label>
-                      <input
-                        type="text"
-                        id="cardNumber"
-                        name="cardNumber"
-                        value={newCard.cardNumber}
-                        onChange={handleCardInputChange}
-                        placeholder="1234 5678 9012 3456"
-                        required
-                        maxLength="16"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="cardName">Nome no Cartão</label>
-                      <input
-                        type="text"
-                        id="cardName"
-                        name="cardName"
-                        value={newCard.cardName}
-                        onChange={handleCardInputChange}
-                        placeholder="Nome como está no cartão"
-                        required
-                      />
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label htmlFor="expiryDate">Data de Expiração</label>
-                        <input
-                          type="text"
-                          id="expiryDate"
-                          name="expiryDate"
-                          value={newCard.expiryDate}
-                          onChange={handleCardInputChange}
-                          placeholder="MM/AA"
-                          required
-                          maxLength="5"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label htmlFor="cvv">CVV</label>
-                        <input
-                          type="text"
-                          id="cvv"
-                          name="cvv"
-                          value={newCard.cvv}
-                          onChange={handleCardInputChange}
-                          placeholder="123"
-                          required
-                          maxLength="4"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-actions">
-                      <button type="submit" className="save-card-button">
-                        Salvar Cartão
-                      </button>
-                    </div>
-                  </form>
+                  <Elements stripe={stripePromise}>
+                    <CardForm 
+                      onAddCard={handleAddCardSuccess} 
+                      onCancel={() => setShowAddCardForm(false)}
+                      customerStripeId={customerStripeId}
+                      isLoading={loading}
+                      setError={setError}
+                      setSaveMessage={setSaveMessage}
+                    />
+                  </Elements>
                 )}
 
                 {cards.length === 0 && !showAddCardForm ? (
