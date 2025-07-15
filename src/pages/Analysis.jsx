@@ -16,13 +16,13 @@ function Analysis() {
   });
 
   const [files, setFiles] = useState({
-    incomeTax: null,
-    registration: null,
-    taxStatus: null,
-    taxBilling: null,
-    managementBilling: null,
-    spcSerasa: null,
-    statement: null
+    incomeTax: [],
+    registration: [],
+    taxStatus: [],
+    taxBilling: [],
+    managementBilling: [],
+    spcSerasa: [],
+    statement: []
   });
   
   // Carregar estado salvo quando o componente monta
@@ -55,27 +55,39 @@ function Analysis() {
     localStorage.setItem('analysisSelectedDocuments', JSON.stringify(updatedSelections));
     
     if (!checked) {
-      setFiles(prev => ({ ...prev, [name]: null }));
+      setFiles(prev => ({ ...prev, [name]: [] }));
     }
   };
 
   const handleFileChange = (e) => {
-    const { name, files } = e.target;
+    const { name, files: selectedFiles } = e.target;
     
-    // Adicionar um prefixo ao nome do arquivo para facilitar a identificação posterior
-    if (files[0]) {
-      // Criar um novo objeto File com o mesmo conteúdo, mas com nome modificado
+    if (selectedFiles.length > 0) {
       const fileType = getFileType(name);
-      const newFileName = `${fileType}_${files[0].name}`;
       
-      // Não podemos modificar o arquivo diretamente, então armazenamos metadados adicionais
-      const fileWithMetadata = files[0];
-      fileWithMetadata.documentType = name; // Adicionar metadados para identificar o tipo do documento
+      // Criar cópias dos arquivos com metadados adicionais
+      const filesWithMetadata = Array.from(selectedFiles).map(file => {
+        const fileCopy = file;
+        fileCopy.documentType = name; // Adicionar metadados para identificar o tipo do documento
+        return fileCopy;
+      });
       
-      setFiles(prev => ({ ...prev, [name]: fileWithMetadata }));
-    } else {
-      setFiles(prev => ({ ...prev, [name]: null }));
+      // Adicionar os novos arquivos ao array existente
+      setFiles(prev => ({
+        ...prev,
+        [name]: [...prev[name], ...filesWithMetadata]
+      }));
+      
+      // Limpar o input de arquivo para permitir selecionar o mesmo arquivo novamente
+      e.target.value = '';
     }
+  };
+  
+  const handleRemoveFile = (category, index) => {
+    setFiles(prev => ({
+      ...prev,
+      [category]: prev[category].filter((_, i) => i !== index)
+    }));
   };
   
   // Função para obter o tipo de arquivo em português para o nome
@@ -95,14 +107,14 @@ function Analysis() {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Filtrar apenas os arquivos que foram selecionados (checked)
+    // Combinar todos os arquivos de todas as categorias em um único array
     const filesToSend = Object.entries(selectedDocuments)
-      .filter(([key, checked]) => checked && files[key])
-      .map(([key]) => files[key]);
+      .filter(([key, checked]) => checked && files[key].length > 0)
+      .flatMap(([key]) => files[key]);
     
     // Salvar informações sobre os arquivos enviados no localStorage
     const filesInfo = Object.entries(selectedDocuments)
-      .filter(([key, checked]) => checked && files[key])
+      .filter(([key, checked]) => checked && files[key].length > 0)
       .reduce((acc, [key]) => {
         acc[key] = true;
         return acc;
@@ -133,8 +145,22 @@ function Analysis() {
               {selected && (
                 <div className="file-upload">
                   <input type="file" name={key} onChange={handleFileChange} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
-                  {files[key] && (
-                    <span className="file-name">{files[key].name}</span>
+                  
+                  {files[key].length > 0 && (
+                    <div className="files-list">
+                      {files[key].map((file, index) => (
+                        <div key={index} className="file-entry">
+                          <span className="file-name">{file.name}</span>
+                          <button 
+                            type="button" 
+                            className="remove-file" 
+                            onClick={() => handleRemoveFile(key, index)}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
@@ -145,7 +171,7 @@ function Analysis() {
           type="submit" 
           className="send-documents-button" 
           disabled={!Object.values(selectedDocuments).some(Boolean) || 
-            !Object.entries(selectedDocuments).some(([key, selected]) => selected && files[key])}
+            !Object.entries(selectedDocuments).some(([key, selected]) => selected && files[key].length > 0)}
         >
           Enviar Documentos
         </button>
