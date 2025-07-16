@@ -144,7 +144,10 @@ function Analysis() {
               </label>
               {selected && (
                 <div className="file-upload">
-                  <input type="file" name={key} onChange={handleFileChange} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                  <input type="file" name={key} onChange={handleFileChange} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple />
+                  <div className="file-upload-info">
+                    Você pode selecionar múltiplos arquivos de uma vez pressionando Ctrl (ou Cmd) ao selecionar
+                  </div>
                   
                   {files[key].length > 0 && (
                     <div className="files-list">
