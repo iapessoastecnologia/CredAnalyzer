@@ -846,4 +846,8 @@
   .profile-sidebar li.active{
     color: #121212;
   }
+
+  .report-card-preview strong {
+    color: var(--color-primary);
+  }
 }
