@@ -816,6 +816,10 @@
     color: var(--color-primary);
   }
 
+  .save-button{
+    color: #121212;
+  }
+
   .save-button:hover{
     background-color: #e6ac00;
     box-shadow: 0 6px 12px rgba(255, 192, 0, 0.15);
