@@ -850,4 +850,8 @@
   .report-card-preview strong {
     color: var(--color-primary);
   }
+  
+  .confirm-delete-content {
+    background-color: #1E1E1E;
+  }
 }
