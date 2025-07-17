@@ -253,3 +253,183 @@
     box-shadow: 0 7px 20px rgba(255, 192, 0, 0.3);
   }
 } 
+
+/* Estilos para a seção de garantias */
+.collateral-section {
+  margin-top: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.collateral-section h2 {
+  color: var(--color-primary);
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  padding-bottom: 0.8rem;
+  position: relative;
+}
+
+.collateral-section h2::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background-color: var(--color-secondary);
+  border-radius: 2px;
+}
+
+.collateral-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.collateral-item {
+  background-color: #f9fbfd;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e8edf3;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.collateral-item:hover {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+  border-color: #d1dbe6;
+}
+
+.collateral-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.collateral-header h3 {
+  color: var(--color-primary);
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.remove-collateral-btn {
+  background: transparent;
+  color: #e74c3c;
+  font-size: 1.5rem;
+  padding: 0.2rem 0.5rem;
+  box-shadow: none;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.remove-collateral-btn:hover {
+  background-color: rgba(231, 76, 60, 0.1);
+  transform: scale(1.1);
+}
+
+.add-collateral-btn {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 2px dashed var(--color-primary);
+  padding: 0.8rem 1.2rem;
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.add-collateral-btn:hover {
+  background-color: rgba(11, 57, 84, 0.05);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(0);
+}
+
+/* Media queries para responsividade */
+@media (max-width: 768px) {
+  .collateral-item {
+    padding: 1.2rem;
+  }
+  
+  .collateral-header h3 {
+    font-size: 1.1rem;
+  }
+  
+  .add-collateral-btn {
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .collateral-section h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1.2rem;
+  }
+  
+  .collateral-item {
+    padding: 1rem;
+  }
+  
+  .collateral-header h3 {
+    font-size: 1rem;
+  }
+}
+
+/* Estilos para modo escuro */
+@media (prefers-color-scheme: dark) {
+  .collateral-item {
+    background-color: #252525;
+    border-color: #3d3d3d;
+  }
+  
+  .collateral-item:hover {
+    border-color: #4d4d4d;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  }
+  
+  .collateral-section h2 {
+    color: var(--color-primary);
+  }
+  
+  .collateral-section h2::after {
+    background-color: var(--color-secondary);
+  }
+  
+  .collateral-header h3 {
+    color: var(--color-primary);
+  }
+  
+  .add-collateral-btn {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+  
+  .add-collateral-btn:hover {
+    background-color: rgba(255, 192, 0, 0.1);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+  
+  .remove-collateral-btn {
+    color: #e74c3c;
+  }
+  
+  .remove-collateral-btn:hover {
+    background-color: rgba(231, 76, 60, 0.2);
+  }
+} 

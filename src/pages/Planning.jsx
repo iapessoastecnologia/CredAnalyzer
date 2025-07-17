@@ -11,7 +11,9 @@ function Planning() {
     objective: '',
     otherObjective: '',
     creditAmount: '',
-    timeInCompany: ''
+    timeInCompany: '',
+    gracePeriod: '',
+    collaterals: [{ type: '', value: '', otherType: '' }]
   });
   
   // Carregar dados salvos do localStorage ao montar o componente
@@ -24,6 +26,19 @@ function Planning() {
         // Se houver valor de crédito numérico, formatá-lo como moeda
         if (parsedData.creditAmount && typeof parsedData.creditAmount === 'number') {
           parsedData.creditAmount = formatCurrency(String(parsedData.creditAmount * 100));
+        }
+
+        // Formatar valores das garantias se existirem
+        if (parsedData.collaterals && Array.isArray(parsedData.collaterals)) {
+          parsedData.collaterals = parsedData.collaterals.map(collateral => ({
+            ...collateral,
+            value: typeof collateral.value === 'number' 
+              ? formatCurrency(String(collateral.value * 100)) 
+              : collateral.value,
+            otherType: collateral.otherType || ''
+          }));
+        } else {
+          parsedData.collaterals = [{ type: '', value: '', otherType: '' }];
         }
         
         setFormData(parsedData);
@@ -85,15 +100,86 @@ function Planning() {
     setFormData(updatedFormData);
     localStorage.setItem('planningFormData', JSON.stringify(updatedFormData));
   };
+
+  // Função para lidar com alterações nos campos de garantias
+  const handleCollateralChange = (index, field, value) => {
+    const updatedCollaterals = [...formData.collaterals];
+    
+    if (field === 'value') {
+      // Aplicar formatação de moeda para o valor
+      const unformattedValue = unformatCurrency(value);
+      const formattedValue = formatCurrency(unformattedValue);
+      updatedCollaterals[index][field] = formattedValue;
+    } else {
+      updatedCollaterals[index][field] = value;
+    }
+    
+    const updatedFormData = {
+      ...formData,
+      collaterals: updatedCollaterals
+    };
+    
+    setFormData(updatedFormData);
+    localStorage.setItem('planningFormData', JSON.stringify(updatedFormData));
+  };
+  
+  // Função para adicionar nova garantia
+  const addCollateral = () => {
+    setFormData(prevData => {
+      const updatedData = {
+        ...prevData,
+        collaterals: [...prevData.collaterals, { type: '', value: '', otherType: '' }]
+      };
+      
+      localStorage.setItem('planningFormData', JSON.stringify(updatedData));
+      return updatedData;
+    });
+  };
+  
+  // Função para remover garantia
+  const removeCollateral = (index) => {
+    if (formData.collaterals.length <= 1) return;
+    
+    setFormData(prevData => {
+      const updatedCollaterals = [...prevData.collaterals];
+      updatedCollaterals.splice(index, 1);
+      
+      const updatedData = {
+        ...prevData,
+        collaterals: updatedCollaterals
+      };
+      
+      localStorage.setItem('planningFormData', JSON.stringify(updatedData));
+      return updatedData;
+    });
+  };
   
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Antes de salvar, converte o valor formatado para número
+    // Antes de salvar, converte os valores formatados para número
     const formDataToSave = { ...formData };
+    
     if (formData.creditAmount) {
       // Remove a formatação e converte para número
       formDataToSave.creditAmount = parseFloat(unformatCurrency(formData.creditAmount)) / 100;
+    }
+    
+    // Converter valores das garantias
+    if (formData.collaterals && formData.collaterals.length > 0) {
+      formDataToSave.collaterals = formData.collaterals
+        .filter(collateral => collateral.type) // Filtrar apenas garantias com tipo selecionado
+        .map(collateral => {
+          const result = {
+            type: collateral.type === 'Outro' ? collateral.otherType : collateral.type
+          };
+          
+          if (collateral.value) {
+            result.value = parseFloat(unformatCurrency(collateral.value)) / 100;
+          }
+          
+          return result;
+        });
     }
     
     localStorage.setItem('planningData', JSON.stringify(formDataToSave));
@@ -106,6 +192,7 @@ function Planning() {
   
   const segments = ['Varejo', 'Indústria', 'Serviços', 'Tecnologia', 'Saúde', 'Educação', 'Outro'];
   const objectives = ['Capital de Giro', 'Expansão', 'Renegociação de Dívidas', 'Compra de Equipamentos', 'Outro'];
+  const collateralTypes = ['Imóvel', 'Automovel', 'Equipamento', 'Estoque', 'Aplicação Financeira', 'Outro'];
 
   return (
     <div className="planning-container">
@@ -158,6 +245,80 @@ function Planning() {
           <label htmlFor="timeInCompany">Tempo de Empresa (anos):</label>
           <input type="number" id="timeInCompany" name="timeInCompany" value={formData.timeInCompany} onChange={handleChange} min="0.1" step="any" required />
         </div>
+        <div className="form-group">
+          <label htmlFor="gracePeriod">Carência Solicitada em meses (Opcional):</label>
+          <input type="number" id="gracePeriod" name="gracePeriod" value={formData.gracePeriod} onChange={handleChange} min="0" step="1" />
+        </div>
+        
+        <div className="collateral-section">
+          <h2>Garantias (Opcional)</h2>
+          <div className="collateral-container">
+            {formData.collaterals.map((collateral, index) => (
+              <div key={index} className="collateral-item">
+                <div className="collateral-header">
+                  <h3>Garantia {index + 1}</h3>
+                  {formData.collaterals.length > 1 && (
+                    <button 
+                      type="button" 
+                      onClick={() => removeCollateral(index)}
+                      className="remove-collateral-btn"
+                      aria-label="Remover garantia"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor={`collateral-type-${index}`}>Tipo:</label>
+                  <select
+                    id={`collateral-type-${index}`}
+                    value={collateral.type}
+                    onChange={(e) => handleCollateralChange(index, 'type', e.target.value)}
+                  >
+                    <option value="">Selecione um tipo</option>
+                    {collateralTypes.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                {collateral.type === 'Outro' && (
+                  <div className="form-group">
+                    <label htmlFor={`collateral-other-type-${index}`}>Especifique o Tipo:</label>
+                    <input 
+                      type="text" 
+                      id={`collateral-other-type-${index}`} 
+                      value={collateral.otherType || ''}
+                      onChange={(e) => handleCollateralChange(index, 'otherType', e.target.value)}
+                      placeholder="Ex: Aval de Terceiros"
+                    />
+                  </div>
+                )}
+                
+                <div className="form-group">
+                  <label htmlFor={`collateral-value-${index}`}>Valor:</label>
+                  <input
+                    type="text"
+                    id={`collateral-value-${index}`}
+                    value={collateral.value}
+                    onChange={(e) => handleCollateralChange(index, 'value', e.target.value)}
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <button 
+            type="button" 
+            onClick={addCollateral}
+            className="add-collateral-btn"
+          >
+            + Adicionar Outra Garantia
+          </button>
+        </div>
+        
         <button type="submit" className="continue-button">Continuar</button>
       </form>
     </div>
