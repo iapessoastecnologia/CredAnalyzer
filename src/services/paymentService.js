@@ -375,39 +375,72 @@ export const getPlanos = async () => {
  */
 export const getPlanoUsuario = async (userId) => {
   try {
-    // Modo de desenvolvimento - retorna dados simulados
-    if (DEV_MODE) {
-      // Verificar se o usuário existe no localStorage
-      const userData = localStorage.getItem('mock_user_data_' + userId);
-
-      if (userData) {
-        // Se temos dados do usuário, verificar se ele tem plano
-        const parsedData = JSON.parse(userData);
-        if (parsedData.temPlano) {
-          return {
-            success: true,
-            tem_plano: true,
-            plano: parsedData.plano
-          };
-        }
-      }
-
-      // Por padrão retornar que não tem plano
+    // Sempre usar Firestore, mesmo em DEV_MODE
+    const userRef = doc(db, "usuarios", userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
       return {
         success: true,
         tem_plano: false,
         plano: null
       };
     }
-
-    const response = await fetch(`${API_BASE_URL}/stripe/plano/${userId}`);
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Erro ao obter plano do usuário');
+    
+    const userData = userDoc.data();
+    
+    if (!userData.temPlano || !userData.subscription) {
+      return {
+        success: true,
+        tem_plano: false,
+        plano: null
+      };
     }
-
-    return await response.json();
+    
+    // Função para garantir que datas sejam tratadas corretamente
+    const processarData = (data) => {
+      if (!data) return new Date().toISOString();
+      
+      try {
+        // Verificar se é um timestamp do Firestore
+        if (typeof data === 'object' && data.toDate && typeof data.toDate === 'function') {
+          return data.toDate().toISOString();
+        }
+        
+        // Se já for um objeto Date
+        if (data instanceof Date) {
+          return data.toISOString();
+        }
+        
+        // Se for um número (timestamp em milissegundos)
+        if (typeof data === 'number') {
+          return new Date(data).toISOString();
+        }
+        
+        // Se for uma string, tentar converter para Date
+        if (typeof data === 'string') {
+          return new Date(data).toISOString();
+        }
+        
+        // Fallback: data atual
+        return new Date().toISOString();
+      } catch (error) {
+        console.error('Erro ao processar data:', error);
+        return new Date().toISOString();
+      }
+    };
+    
+    return {
+      success: true,
+      tem_plano: true,
+      plano: {
+        nome: userData.subscription.planName,
+        relatorios_restantes: userData.subscription.reportsLeft,
+        renovacao_automatica: userData.subscription.autoRenew,
+        data_inicio: processarData(userData.subscription.startDate),
+        data_fim: processarData(userData.subscription.endDate)
+      }
+    };
   } catch (error) {
     console.error('Erro ao obter plano do usuário:', error);
     throw error;
@@ -847,64 +880,8 @@ export const cancelarAssinatura = async (userId) => {
  * @returns {Promise<Object>} - Resultado da operação
  */
 export const consumirRelatorio = async (userId) => {
-  try {
-    // Modo de desenvolvimento - retorna dados simulados
-    if (DEV_MODE) {
-      // Verificar se o usuário existe no localStorage
-      const userDataJson = localStorage.getItem('mock_user_data_' + userId);
-
-      if (!userDataJson) {
-        return {
-          success: false,
-          error: 'Usuário não encontrado',
-          needsUpgrade: true
-        };
-      }
-
-      const userData = JSON.parse(userDataJson);
-
-      // Verificar se tem plano ativo
-      if (!userData.temPlano || !userData.plano) {
-        return {
-          success: false,
-          error: 'Sem plano ativo',
-          needsUpgrade: true
-        };
-      }
-
-      // Verificar se tem relatórios disponíveis
-      if (userData.plano.relatorios_restantes <= 0) {
-        return {
-          success: false,
-          error: 'Não há relatórios disponíveis',
-          needsUpgrade: true
-        };
-      }
-
-      // Decrementar e salvar
-      userData.plano.relatorios_restantes -= 1;
-      localStorage.setItem('mock_user_data_' + userId, JSON.stringify(userData));
-
-      return {
-        success: true,
-        relatorios_restantes: userData.plano.relatorios_restantes
-      };
-    }
-
-    const response = await fetch(`${API_BASE_URL}/stripe/consumir_relatorio/${userId}`, {
-      method: 'POST',
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Erro ao consumir relatório');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Erro ao consumir relatório:', error);
-    throw error;
-  }
+  // Usar a mesma lógica do decrementReportsLeft
+  return decrementReportsLeft(userId);
 };
 
 /**
@@ -1024,88 +1001,59 @@ export const decrementReportsLeft = async (userId) => {
   try {
     console.log('[DEBUG] Decrementando relatórios para o usuário:', userId);
 
-    // Modo de desenvolvimento - usar localStorage
-    if (DEV_MODE) {
-      // Verificar se o usuário existe no localStorage
-      const userDataJson = localStorage.getItem('mock_user_data_' + userId);
+    // Mesmo em DEV_MODE, vamos usar o Firestore
+    try {
+      // Buscar referência do documento do usuário
+      const userRef = doc(db, "usuarios", userId);
+      const userDoc = await getDoc(userRef);
 
-      if (!userDataJson) {
-        console.error('[DEBUG] Usuário não encontrado no localStorage');
-        return {
-          success: false,
-          error: 'Usuário não encontrado'
-        };
-      }
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
 
-      const userData = JSON.parse(userDataJson);
-
-      // Verificar se tem plano ativo
-      if (!userData.temPlano || !userData.plano) {
-        console.error('[DEBUG] Usuário não possui plano ativo');
-        return {
-          success: false,
-          error: 'Sem plano ativo'
-        };
-      }
-
-      // Verificar se tem relatórios disponíveis
-      if (userData.plano.relatorios_restantes <= 0) {
-        console.error('[DEBUG] Usuário não possui relatórios disponíveis');
-        return {
-          success: false,
-          error: 'Não há relatórios disponíveis'
-        };
-      }
-
-      // Decrementar e salvar
-      userData.plano.relatorios_restantes -= 1;
-      localStorage.setItem('mock_user_data_' + userId, JSON.stringify(userData));
-
-      console.log('[DEBUG] Relatórios restantes:', userData.plano.relatorios_restantes);
-
-      // Atualizar também no Firebase
-      try {
-        // Buscar referência do documento do usuário
-        const userRef = doc(db, "usuarios", userId);
-        const userDoc = await getDoc(userRef);
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-
-          // Decrementar apenas reportsLeft (não decrementar creditosPlano que deve se manter fixo)
-          if (userData.subscription && userData.subscription.reportsLeft !== undefined) {
-            // Decrementar relatórios
-            await updateDoc(userRef, {
-              "subscription.reportsLeft": userData.subscription.reportsLeft - 1,
-              // Atualizar também creditosRestantes para manter compatibilidade
-              "creditosRestantes": userData.subscription.reportsLeft - 1
-            });
-
-            console.log('[DEBUG] Relatórios decrementados no Firebase');
-          }
+        // Verificar se tem plano ativo
+        if (!userData.temPlano || !userData.subscription) {
+          console.error('[DEBUG] Usuário não possui plano ativo');
+          return {
+            success: false,
+            error: 'Sem plano ativo',
+            needsUpgrade: true
+          };
         }
-      } catch (firebaseError) {
-        console.error('[DEBUG] Erro ao atualizar Firebase, mas continuando com localStorage:', firebaseError);
-        // Não falhar se o Firebase falhar, já que temos o localStorage
+
+        // Verificar se tem relatórios disponíveis
+        if (!userData.subscription.reportsLeft || userData.subscription.reportsLeft <= 0) {
+          console.error('[DEBUG] Usuário não possui relatórios disponíveis');
+          return {
+            success: false,
+            error: 'Não há relatórios disponíveis',
+            needsUpgrade: true
+          };
+        }
+
+        // Decrementar relatórios
+        await updateDoc(userRef, {
+          "subscription.reportsLeft": userData.subscription.reportsLeft - 1,
+          // Atualizar também creditosRestantes para manter compatibilidade
+          "creditosRestantes": userData.subscription.reportsLeft - 1
+        });
+
+        console.log('[DEBUG] Relatórios decrementados no Firebase');
+        
+        return {
+          success: true,
+          relatorios_restantes: userData.subscription.reportsLeft - 1
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Usuário não encontrado',
+          needsUpgrade: true
+        };
       }
-
-      return {
-        success: true,
-        relatorios_restantes: userData.plano.relatorios_restantes
-      };
+    } catch (error) {
+      console.error('[DEBUG] Erro ao atualizar Firebase:', error);
+      throw error;
     }
-
-    // Modo de produção - chamar API
-    const response = await fetch(`${API_BASE_URL}/stripe/consumir_relatorio/${userId}`, {
-      method: 'POST',
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Erro ao decrementar relatórios');
-    }
-
-    return await response.json();
   } catch (error) {
     console.error('Erro ao decrementar relatórios:', error);
     return { success: false, error: error.message };

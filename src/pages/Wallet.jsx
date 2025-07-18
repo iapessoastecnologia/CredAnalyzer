@@ -511,10 +511,41 @@ function Wallet() {
     if (!date) return 'N/A';
     
     try {
+      // Lidar com diferentes formatos de data
+      let dateObj;
+      
+      // Se for um timestamp do Firestore
+      if (typeof date === 'object' && date.toDate && typeof date.toDate === 'function') {
+        dateObj = date.toDate();
+      }
+      // Se já for um objeto Date
+      else if (date instanceof Date) {
+        dateObj = date;
+      }
+      // Se for um número (timestamp em milissegundos)
+      else if (typeof date === 'number') {
+        dateObj = new Date(date);
+      }
+      // Se for uma string, tentar converter
+      else if (typeof date === 'string') {
+        dateObj = new Date(date);
+      }
+      // Caso não consiga identificar, usar data atual
+      else {
+        console.error('Formato de data não reconhecido:', date);
+        return 'Data inválida';
+      }
+      
+      // Verificar se a data é válida
+      if (isNaN(dateObj.getTime())) {
+        console.error('Data inválida após conversão:', date);
+        return 'Data inválida';
+      }
+      
       const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
-      return new Date(date).toLocaleDateString('pt-BR', options);
+      return dateObj.toLocaleDateString('pt-BR', options);
     } catch (error) {
-      console.error('Erro ao formatar data:', error);
+      console.error('Erro ao formatar data:', error, date);
       return 'Data inválida';
     }
   };

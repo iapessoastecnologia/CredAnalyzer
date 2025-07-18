@@ -267,6 +267,39 @@ export function AuthProvider({ children }) {
         return null;
       }
       
+      // Função para processar datas em diferentes formatos
+      const processarData = (data) => {
+        if (!data) return new Date();
+        
+        try {
+          // Verificar se é um timestamp do Firestore
+          if (typeof data === 'object' && data.toDate && typeof data.toDate === 'function') {
+            return data.toDate();
+          }
+          
+          // Se já for um objeto Date
+          if (data instanceof Date) {
+            return data;
+          }
+          
+          // Se for um número (timestamp em milissegundos)
+          if (typeof data === 'number') {
+            return new Date(data);
+          }
+          
+          // Se for uma string, tentar converter para Date
+          if (typeof data === 'string') {
+            return new Date(data);
+          }
+          
+          // Fallback: data atual
+          return new Date();
+        } catch (error) {
+          console.error('Erro ao processar data:', error);
+          return new Date();
+        }
+      };
+      
       // Se estamos forçando atualização ou não temos subscription no estado
       if (forceRefresh || !userSubscription) {
         const response = await getPlanoUsuario(userId);
@@ -284,38 +317,40 @@ export function AuthProvider({ children }) {
             planName: response.plano.nome,
             reportsLeft: subscription.reportsLeft || response.plano.relatorios_restantes,
             creditosPlano: subscription.creditosPlano || 0, // Novo campo
-            endDate: new Date(response.plano.data_fim),
+            endDate: processarData(response.plano.data_fim),
+            startDate: processarData(response.plano.data_inicio),
             autoRenew: response.plano.renovacao_automatica,
           };
           
           setUserSubscription(updatedSubscription);
-          return updatedSubscription;
-        }
-      } else {
-        // Usar dados da subscription do documento do usuário
-        const subscription = userData.subscription || {};
-        
-        if (subscription) {
-          const updatedSubscription = {
-            ...userSubscription,
-            planName: subscription.planName,
-            reportsLeft: subscription.reportsLeft,
-            creditosPlano: subscription.creditosPlano || 0, // Novo campo
-          };
-          
-          setUserSubscription(updatedSubscription);
+          setSubscriptionLoading(false);
           return updatedSubscription;
         }
       }
       
+      // Usar os dados diretamente do Firestore se não conseguir do backend
+      if (userData.subscription) {
+        const subscriptionData = {
+          planName: userData.subscription.planName || 'Plano',
+          reportsLeft: userData.subscription.reportsLeft || 0,
+          creditosPlano: userData.subscription.creditosPlano || 0,
+          endDate: processarData(userData.subscription.endDate),
+          startDate: processarData(userData.subscription.startDate),
+          autoRenew: userData.subscription.autoRenew || false,
+        };
+        
+        setUserSubscription(subscriptionData);
+        setSubscriptionLoading(false);
+        return subscriptionData;
+      }
+      
       setUserSubscription(null);
+      setSubscriptionLoading(false);
       return null;
     } catch (error) {
-      console.error("Erro ao carregar assinatura:", error);
-      setUserSubscription(null);
-      return null;
-    } finally {
+      console.error('Erro ao carregar assinatura do usuário:', error);
       setSubscriptionLoading(false);
+      return null;
     }
   };
 
