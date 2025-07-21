@@ -185,12 +185,12 @@ function Analysis() {
 
 const getLabel = (key) => {
   const labels = {
-    incomeTax: 'Imposto de Renda',
+    incomeTax: 'Imposto de Renda do(s) Sócio(s)',
     registration: 'Registrato',
     taxStatus: 'Situação Fiscal',
     taxBilling: 'Faturamento Fiscal',
     managementBilling: 'Faturamento Gerencial',
-    spcSerasa: 'SPC ou Serasa',
+    spcSerasa: 'SPC/Serasa',
     statement: 'Demonstrativo'
   };
   return labels[key];

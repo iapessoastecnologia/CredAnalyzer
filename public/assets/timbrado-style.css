@@ -17,22 +17,36 @@ body {
 }
 
 .header {
-  background-color: #0B3954;
+  background-color: #fff;
   padding: 20px;
-  color: white;
+  color: #0B3954;
   text-align: center;
   position: relative;
+  border-bottom: 2px solid #0B3954;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-logo {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  height: 60px;
+  width: auto;
+  /* Filtro para converter a logo para preto */
+  filter: brightness(0);
 }
 
 .header h1 {
-  color: #FFD700;
+  color: #0B3954;
   margin: 0;
   font-size: 24px;
   font-weight: bold;
 }
 
 .header h2 {
-  color: white;
+  color: #0B3954;
   margin: 5px 0 0 0;
   font-size: 18px;
 }
@@ -64,13 +78,13 @@ body {
 
 .content h1 {
   font-size: 20px;
-  border-bottom: 2px solid #FFD700;
+  border-bottom: 2px solid #0B3954;
   padding-bottom: 5px;
 }
 
 .content h2 {
   font-size: 18px;
-  border-bottom: 1px solid #FFD700;
+  border-bottom: 1px solid #0B3954;
   padding-bottom: 5px;
 }
 
@@ -97,7 +111,7 @@ body {
 }
 
 .content strong {
-  color: #FFD700;
+  color: #0B3954;
   font-weight: bold;
 }
 
@@ -182,7 +196,7 @@ body {
   }
   
   .content strong {
-    color: #FFD700;
+    color: #0B3954;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
