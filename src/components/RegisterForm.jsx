@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { maskPhone } from '../utils/maskUtils';
+import PasswordInput from './PasswordInput';
 
 function RegisterForm({ onToggleMode, onSuccess }) {
   const { register } = useAuth();
@@ -10,6 +12,10 @@ function RegisterForm({ onToggleMode, onSuccess }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleTelefoneChange = (e) => {
+    setTelefone(maskPhone(e.target.value));
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -77,15 +83,15 @@ function RegisterForm({ onToggleMode, onSuccess }) {
             type="tel"
             id="telefone"
             value={telefone}
-            onChange={(e) => setTelefone(e.target.value)}
+            onChange={handleTelefoneChange}
+            placeholder="(XX) XXXXX-XXXX"
             required
           />
         </div>
         
         <div className="form-group">
           <label htmlFor="password">Senha</label>
-          <input
-            type="password"
+          <PasswordInput
             id="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -95,8 +101,7 @@ function RegisterForm({ onToggleMode, onSuccess }) {
         
         <div className="form-group">
           <label htmlFor="confirmPassword">Confirmar Senha</label>
-          <input
-            type="password"
+          <PasswordInput
             id="confirmPassword"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import RegisterForm from '../components/RegisterForm';
 import ProfileCompletion from '../components/ProfileCompletion';
+import PasswordInput from '../components/PasswordInput';
 import googleIcon from '../assets/google-icon.svg';
 import '../styles/auth.css';
 import { doc, getDoc } from 'firebase/firestore';
@@ -132,8 +133,7 @@ function Login() {
                         
                         <div className="form-group">
                             <label htmlFor="password">Senha</label>
-                            <input
-                                type="password"
+                            <PasswordInput
                                 id="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}

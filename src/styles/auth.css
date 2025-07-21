@@ -134,6 +134,57 @@
   box-shadow: none;
 }
 
+/* Estilos para o campo de senha com toggle de visibilidade */
+.password-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.password-input {
+  width: 100%;
+  padding-right: 40px; /* Espaço para o botão */
+}
+
+.password-toggle-button {
+  position: absolute;
+  right: 10px;
+  top: 20%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  box-shadow: none;
+  transform: none;
+}
+
+.password-toggle-button:hover {
+  color: #333;
+  box-shadow: none;
+  transform: none;
+}
+
+.password-toggle-button:focus {
+  outline: none;
+  color: #0056b3;
+  transform: none;
+}
+
+.password-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  filter: brightness(0);
+  opacity: 0.7;
+}
+
+.password-toggle-button:hover .password-icon {
+  opacity: 1;
+}
+
 @media (prefers-color-scheme: dark) {
   .auth-form {
     background-color: #1e1e1e;
@@ -151,5 +202,22 @@
   
   .auth-error {
     background-color: rgba(198, 40, 40, 0.2);
+  }
+
+  .password-toggle-button {
+    color: #aaa;
+  }
+  
+  .password-toggle-button:hover {
+    color: #fff;
+  }
+  
+  .password-icon {
+    filter: brightness(0) invert(1); /* Torna o ícone branco no modo escuro */
+    opacity: 0.8;
+  }
+  
+  .password-toggle-button:hover .password-icon {
+    opacity: 1;
   }
 } 

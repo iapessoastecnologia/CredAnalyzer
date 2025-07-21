@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { maskPhone } from '../utils/maskUtils';
 
 function ProfileCompletion({ onSuccess }) {
   const { currentUser, updateUserData } = useAuth();
@@ -12,7 +13,15 @@ function ProfileCompletion({ onSuccess }) {
     if (currentUser?.displayName) {
       setNome(currentUser.displayName);
     }
+    
+    if (currentUser?.phoneNumber) {
+      setTelefone(maskPhone(currentUser.phoneNumber));
+    }
   }, [currentUser]);
+
+  const handleTelefoneChange = (e) => {
+    setTelefone(maskPhone(e.target.value));
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -69,7 +78,8 @@ function ProfileCompletion({ onSuccess }) {
             type="tel"
             id="telefone"
             value={telefone}
-            onChange={(e) => setTelefone(e.target.value)}
+            onChange={handleTelefoneChange}
+            placeholder="(XX) XXXXX-XXXX"
             required
           />
         </div>

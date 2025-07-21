@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 // Importações corretas para React 19 e ReactMarkdown 10
 import { generatePdfFromHtml } from '../utils/reportUtils';
+import { maskPhone } from '../utils/maskUtils';
 import '../styles/Profile.css';
 
 // Função utilitária para garantir que o conteúdo markdown é uma string válida
@@ -165,10 +166,19 @@ function Profile() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+    
+    // Aplicar máscara para telefone
+    if (name === 'telefone') {
+      setFormData({
+        ...formData,
+        [name]: maskPhone(value)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   const handleSaveSettings = async () => {
@@ -386,6 +396,7 @@ function Profile() {
                 name="telefone"
                 value={formData.telefone || ''}
                 onChange={handleInputChange}
+                placeholder="(XX) XXXXX-XXXX"
               />
             </div>
             
