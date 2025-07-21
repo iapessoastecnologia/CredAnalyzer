@@ -6,8 +6,8 @@ function Planning() {
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    segment: '',
-    otherSegment: '',
+    // segment: '',
+    // otherSegment: '',
     objective: '',
     otherObjective: '',
     creditAmount: '',
@@ -190,7 +190,7 @@ function Planning() {
     navigate('/');
   };
   
-  const segments = ['Varejo', 'Indústria', 'Serviços', 'Tecnologia', 'Saúde', 'Educação', 'Outro'];
+  // const segments = ['Varejo', 'Indústria', 'Serviços', 'Tecnologia', 'Saúde', 'Educação', 'Outro'];
   const objectives = ['Capital de Giro', 'Expansão', 'Renegociação de Dívidas', 'Compra de Equipamentos', 'Outro'];
   const collateralTypes = ['Imóvel', 'Automovel', 'Equipamento', 'Estoque', 'Aplicação Financeira', 'Outro'];
 
@@ -199,7 +199,7 @@ function Planning() {
       <button className="back-button" onClick={handleBack}>Voltar</button>
       <h1>Planejamento</h1>
       <form onSubmit={handleSubmit} className="planning-form">
-        <div className="form-group">
+        {/* <div className="form-group">
           <label htmlFor="segment">Segmento da Empresa:</label>
           <select id="segment" name="segment" value={formData.segment} onChange={handleChange} required>
             <option value="">Selecione um segmento</option>
@@ -213,7 +213,7 @@ function Planning() {
             <label htmlFor="otherSegment">Especifique o Segmento:</label>
             <input type="text" id="otherSegment" name="otherSegment" value={formData.otherSegment} onChange={handleChange} required />
           </div>
-        )}
+        )} */}
         <div className="form-group">
           <label htmlFor="objective">Objetivo do Crédito Buscado:</label>
           <select id="objective" name="objective" value={formData.objective} onChange={handleChange} required>

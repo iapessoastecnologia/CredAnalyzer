@@ -6,6 +6,7 @@ function Analysis() {
   const navigate = useNavigate();
 
   const [selectedDocuments, setSelectedDocuments] = useState({
+    cnpjCard: true, // Campo de cartão CNPJ como obrigatório
     incomeTax: false,
     registration: false,
     taxStatus: false,
@@ -16,6 +17,7 @@ function Analysis() {
   });
 
   const [files, setFiles] = useState({
+    cnpjCard: [], // Campo para arquivos do cartão CNPJ
     incomeTax: [],
     registration: [],
     taxStatus: [],
@@ -36,6 +38,7 @@ function Analysis() {
           ...selectedDocuments,
           ...parsedSelections,
           // Força a inclusão dos novos campos mesmo se não estiverem no localStorage
+          cnpjCard: true, // Cartão CNPJ sempre obrigatório
           managementBilling: parsedSelections.managementBilling || false,
           spcSerasa: parsedSelections.spcSerasa || false
         });
@@ -47,6 +50,12 @@ function Analysis() {
 
   const handleCheckboxChange = (e) => {
     const { name, checked } = e.target;
+    
+    // Não permitir desmarcar o cartão CNPJ pois é obrigatório
+    if (name === 'cnpjCard') {
+      return;
+    }
+    
     const updatedSelections = { ...selectedDocuments, [name]: checked };
     
     setSelectedDocuments(updatedSelections);
@@ -93,6 +102,7 @@ function Analysis() {
   // Função para obter o tipo de arquivo em português para o nome
   const getFileType = (key) => {
     const types = {
+      cnpjCard: 'CartaoCNPJ',
       incomeTax: 'ImpostoRenda',
       registration: 'Registrato',
       taxStatus: 'SituacaoFiscal',
@@ -106,6 +116,12 @@ function Analysis() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Verificar se o cartão CNPJ foi enviado (obrigatório)
+    if (files.cnpjCard.length === 0) {
+      alert('É obrigatório enviar o Cartão CNPJ para prosseguir.');
+      return;
+    }
     
     // Combinar todos os arquivos de todas as categorias em um único array
     const filesToSend = Object.entries(selectedDocuments)
@@ -139,8 +155,15 @@ function Analysis() {
           {Object.entries(selectedDocuments).map(([key, selected]) => (
             <div className="document-item" key={key}>
               <label>
-                <input type="checkbox" name={key} checked={selected} onChange={handleCheckboxChange} />
+                <input 
+                  type="checkbox" 
+                  name={key} 
+                  checked={selected} 
+                  onChange={handleCheckboxChange} 
+                  disabled={key === 'cnpjCard'} // Desabilita o checkbox para o cartão CNPJ
+                />
                 {getLabel(key)}
+                {key === 'cnpjCard' && <span className="required-field"> (Obrigatório)</span>}
               </label>
               {selected && (
                 <div className="file-upload">
@@ -173,8 +196,11 @@ function Analysis() {
         <button 
           type="submit" 
           className="send-documents-button" 
-          disabled={!Object.values(selectedDocuments).some(Boolean) || 
-            !Object.entries(selectedDocuments).some(([key, selected]) => selected && files[key].length > 0)}
+          disabled={
+            files.cnpjCard.length === 0 || // Desabilita o botão se não houver arquivo de CNPJ
+            (!Object.values(selectedDocuments).some(Boolean) || 
+            !Object.entries(selectedDocuments).some(([key, selected]) => selected && files[key].length > 0))
+          }
         >
           Enviar Documentos
         </button>
@@ -185,11 +211,12 @@ function Analysis() {
 
 const getLabel = (key) => {
   const labels = {
+    cnpjCard: 'Cartão CNPJ',
     incomeTax: 'Imposto de Renda do(s) Sócio(s)',
     registration: 'Registrato',
     taxStatus: 'Situação Fiscal',
-    taxBilling: 'Faturamento Fiscal',
-    managementBilling: 'Faturamento Gerencial',
+    taxBilling: 'Faturamento Declarado',
+    managementBilling: 'Faturamento Real',
     spcSerasa: 'SPC/Serasa',
     statement: 'Demonstrativo'
   };

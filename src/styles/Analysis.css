@@ -124,6 +124,24 @@
   border-color: var(--color-primary);
 }
 
+.document-item input[type="checkbox"]:disabled {
+  background-color: #f3f3f3;
+  border-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.document-item input[type="checkbox"]:disabled:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.required-field {
+  color: #dc3545;
+  font-weight: bold;
+  margin-left: 5px;
+  font-size: 0.9rem;
+}
+
 .file-upload {
   margin-top: 1rem;
   margin-left: 2.5rem;
@@ -341,6 +359,20 @@
   
   .document-item input[type="checkbox"]:checked::before {
     color: #121212;
+  }
+  
+  .document-item input[type="checkbox"]:disabled {
+    background-color: #333333;
+    border-color: #555555;
+  }
+
+  .document-item input[type="checkbox"]:disabled:checked {
+    background-color: var(--color-primary) !important;
+    border-color: var(--color-primary);
+  }
+
+  .required-field {
+    color: #ff6b6b;
   }
   
   .file-upload input[type="file"] {
