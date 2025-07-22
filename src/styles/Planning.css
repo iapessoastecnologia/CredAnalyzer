@@ -245,7 +245,7 @@
   
   .continue-button {
     background: linear-gradient(135deg, var(--color-primary) 0%, #e6ac00 100%);
-    color: #121212;
+    color: #252525 !important;
     box-shadow: 0 4px 15px rgba(255, 192, 0, 0.2);
   }
   

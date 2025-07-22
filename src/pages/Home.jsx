@@ -54,10 +54,10 @@ function Home() {
               <p>Forneça informações básicas sobre sua empresa e o crédito desejado para personalizar a análise.</p>
             </div>
             
-            <div className="feature-card">
+            <div className="feature-card" id="upload-card">
               <div className="feature-icon upload-icon"></div>
               <h3>Upload de Documentos</h3>
-              <p>Envie seus documentos financeiros e fiscais com segurança através da nossa plataforma.</p>
+              <p>Envie seus documentos financeiros e fiscais com segurança através da nossa plataforma.<strong>*</strong></p>
             </div>
             
             <div className="feature-card">
@@ -71,6 +71,12 @@ function Home() {
               <h3>Relatório Detalhado</h3>
               <p>Receba um relatório abrangente com análises, insights e recomendações personalizadas.</p>
             </div>
+          </div>
+          {/* Observação fora do grid, alinhada ao card de upload */}
+          <div className="calendar-note-wrapper">
+            <p className="calendar-note">
+              <strong>*</strong> Os documentos enviados devem ser referentes ao ano calendário vigente.
+            </p>
           </div>
         </div>
       </section>

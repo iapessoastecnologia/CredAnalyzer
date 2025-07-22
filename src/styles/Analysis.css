@@ -52,11 +52,15 @@
 
 .document-selection h2 {
   font-size: 1.4rem;
-  margin-bottom: 2rem;
   color: var(--color-primary);
   font-weight: 600;
   position: relative;
   z-index: 1;
+}
+
+.document-selection .obs {
+  display: block;
+  margin-bottom: 2rem;
 }
 
 .document-item {
@@ -396,7 +400,7 @@
   
   .send-documents-button {
     background: linear-gradient(135deg, var(--color-primary) 0%, #e6ac00 100%);
-    color: #121212;
+    color: #252525 !important;
     box-shadow: 0 4px 15px rgba(255, 192, 0, 0.2);
   }
   

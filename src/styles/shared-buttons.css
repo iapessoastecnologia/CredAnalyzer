@@ -47,4 +47,10 @@
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
   }
-} 
+}
+
+@media (prefers-color-scheme: dark) {
+  .back-button:hover {
+    background-color: #252525 !important;
+  }
+}

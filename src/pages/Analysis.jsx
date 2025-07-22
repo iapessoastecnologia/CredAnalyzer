@@ -152,6 +152,9 @@ function Analysis() {
       <form onSubmit={handleSubmit} className="document-form">
         <div className="document-selection">
           <h2>Selecione os documentos para enviar:</h2>
+          <small className="obs">
+            <strong>* Todos os documentos enviados deverão ser referentes ao ano calendário vigente.</strong>
+          </small>
           {Object.entries(selectedDocuments).map(([key, selected]) => (
             <div className="document-item" key={key}>
               <label>
