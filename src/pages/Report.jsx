@@ -125,11 +125,40 @@ function Report() {
 
           // Adicionar arquivos
           if (analysisFiles && Object.keys(analysisFiles).length > 0) {
-            Object.entries(analysisFiles).forEach(([key, file]) => {
+            // Criar mapeamento de tipos de documentos para o backend
+            const documentTypes = {};
+            
+            // Mapear os arquivos e seus tipos
+            Object.entries(analysisFiles).forEach(([key, file], index) => {
               if (file) {
                 formData.append('files', file);
+                
+                // Mapear os tipos internos para os tipos esperados pelo backend
+                let backendType = key;
+                
+                // Garantir que arquivos SCR/Registrato sejam sempre marcados como 'registrato'
+                if (key === 'registration' || (file.name && (file.name.toLowerCase().includes('scr') || file.name.toLowerCase().includes('registrato')))) {
+                  backendType = 'registrato';
+                }
+                // Converter outros tipos para o formato esperado pelo backend
+                else if (key === 'cnpjCard') backendType = 'cnpj';
+                else if (key === 'incomeTax') backendType = 'irpf';
+                else if (key === 'taxStatus') backendType = 'fiscal';
+                else if (key === 'taxBilling') backendType = 'faturamento_fiscal';
+                else if (key === 'managementBilling') backendType = 'faturamento_gerencial';
+                else if (key === 'spcSerasa') backendType = 'serasa';
+                else if (key === 'statement') backendType = 'demonstrativo';
+                
+                // Adicionar ao mapeamento usando o índice como chave
+                documentTypes[index] = backendType;
               }
             });
+            
+            // Adicionar o mapeamento de tipos de documento ao formData se não estiver vazio
+            if (Object.keys(documentTypes).length > 0) {
+              console.log('Adicionando mapeamento de tipos de documento:', documentTypes);
+              formData.append('document_types', JSON.stringify(documentTypes));
+            }
           }
 
           // Preparar dados do relatório

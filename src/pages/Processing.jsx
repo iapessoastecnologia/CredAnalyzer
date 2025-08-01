@@ -92,9 +92,42 @@ function Processing() {
       console.log('Enviando arquivos:', files.map(f => f.name));
 
       const formData = new FormData();
-      files.forEach((file) => {
+      
+      // Criar mapeamento de tipos de documentos para o backend
+      const documentTypes = {};
+      
+      // Adicionar arquivos ao formData e mapear tipos
+      files.forEach((file, index) => {
         formData.append('files', file);
+        
+        // Se o arquivo tiver um tipo de documento definido, adicioná-lo ao mapeamento
+        if (file.documentType) {
+          // Mapear os tipos internos para os tipos esperados pelo backend
+          let backendType = file.documentType;
+          
+          // Garantir que arquivos SCR/Registrato sejam sempre marcados como 'registrato'
+          if (backendType === 'registration' || file.name.toLowerCase().includes('scr') || file.name.toLowerCase().includes('registrato')) {
+            backendType = 'registrato';
+          } 
+          // Converter outros tipos para o formato esperado pelo backend
+          else if (backendType === 'cnpjCard') backendType = 'cnpj';
+          else if (backendType === 'incomeTax') backendType = 'irpf';
+          else if (backendType === 'taxStatus') backendType = 'fiscal';
+          else if (backendType === 'taxBilling') backendType = 'faturamento_fiscal';
+          else if (backendType === 'managementBilling') backendType = 'faturamento_gerencial';
+          else if (backendType === 'spcSerasa') backendType = 'serasa';
+          else if (backendType === 'statement') backendType = 'demonstrativo';
+          
+          // Adicionar ao mapeamento usando o índice como chave
+          documentTypes[index] = backendType;
+        }
       });
+      
+      // Adicionar o mapeamento de tipos de documento ao formData se não estiver vazio
+      if (Object.keys(documentTypes).length > 0) {
+        console.log('Adicionando mapeamento de tipos de documento:', documentTypes);
+        formData.append('document_types', JSON.stringify(documentTypes));
+      }
 
       // Obter dados de planejamento do localStorage
       const planningData = localStorage.getItem('planningData');
@@ -111,7 +144,7 @@ function Processing() {
           method: 'POST',
           body: formData,
           // Timeout aumentado para 120 segundos devido ao processamento da IA
-          signal: AbortSignal.timeout(120000)
+          //signal: AbortSignal.timeout(120000)
         });
 
         console.log('Resposta recebida:', response.status, response.statusText);

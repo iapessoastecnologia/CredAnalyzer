@@ -77,7 +77,14 @@ function Analysis() {
       // Criar cópias dos arquivos com metadados adicionais
       const filesWithMetadata = Array.from(selectedFiles).map(file => {
         const fileCopy = file;
-        fileCopy.documentType = name; // Adicionar metadados para identificar o tipo do documento
+        
+        // Garantir que arquivos SCR/Registrato sejam marcados corretamente
+        if (name === 'registration') {
+          fileCopy.documentType = 'registrato'; // Marcar explicitamente como registrato para SCR
+        } else {
+          fileCopy.documentType = name; // Para outros tipos, manter o padrão
+        }
+        
         return fileCopy;
       });
       
