@@ -1,6 +1,8 @@
 # CredAnalyzer - Análise de Documentação para Crédito
 
-![CredAnalyzer Logo](./src/assets/logo.png)
+<div align="center">
+  <img src="./src/assets/logo.png" alt="CredAnalyzer Logo" width="100">
+</div>
 
 CredAnalyzer é uma plataforma de análise de documentação para crédito impulsionada por inteligência artificial. A aplicação permite que empresas e usuários façam upload de documentos financeiros e fiscais para obter análises precisas, reduzir tempo de processamento e tomar decisões mais inteligentes relacionadas à elegibilidade para crédito.
 
